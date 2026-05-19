@@ -1,0 +1,15 @@
+本機 Docker 網路（第一次需建立）
+docker network create --driver bridge my-network
+
+部署本機測試用 docker
+把 local/dockerfile 放到 JAR 檔目錄之後，JAR 檔照 dockerfile 的名稱改就可以
+docker build -t my-sef-cli:0.0.1 -t my-sef-cli:latest -f dockerfile . --no-cache
+docker run -d -p 9041:9041 -v "C:/sef-cli:/sef-cli" --network my-network --name my-sef-cli my-sef-cli
+
+部署正式
+docker build -t sef-cli-backend:260519-PRD -t sef-cli-backend:latest . --no-cache
+docker save -o sef-cli-backend-260519-PRD.tar sef-cli-backend:260519-PRD
+到 linux 主機
+docker load -i sef-cli-backend-260519-PRD.tar
+
+（也可直接用 windows\build-docker.ps1 自動完成以上流程）

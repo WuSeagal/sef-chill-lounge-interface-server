@@ -1,0 +1,26 @@
+記得改 config.ps1 的 JAVA_HOME
+
+=== 腳本說明 ===
+
+build.ps1
+  只打包 JAR（mvn clean package）
+  用法：.\windows\build.ps1
+
+build-docker.ps1
+  打包 JAR + 建 Docker Image + 匯出 tar
+  版號預設為今日日期（格式：YYMMDD-PRD）
+
+  用法：
+    .\windows\build-docker.ps1                        # 自動版號，例如 260519-PRD
+    .\windows\build-docker.ps1 -Version "260519-PRD"  # 自訂版號
+
+  輸出：
+    docker/prd/sef-cli-backend-{版號}.tar
+
+start.ps1
+  啟動 JAR（需先 build.ps1）
+  用法：.\windows\start.ps1
+
+stop.ps1
+  關閉已啟動的 JAR
+  用法：.\windows\stop.ps1
