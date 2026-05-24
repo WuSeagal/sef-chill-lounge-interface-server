@@ -54,8 +54,30 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            writeJson(response, com.sef.cli.common.ApiResponse.fail(401, "unauthenticated"));
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            writeJson(response, com.sef.cli.common.ApiResponse.fail(403, "forbidden"));
+                        }))
                 .authorizeHttpRequests(requests -> requests
-                        //todo 這邊未來加上真實要登入權限的路徑
+                        // OAuth / auth 公開路徑
+                        .requestMatchers("/check-auth", "/logout", "/user/googleAuth").permitAll()
+                        // Swagger / OpenAPI 公開
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // attendee profile / tag / social / topic-card endpoints 需登入
+                        .requestMatchers("/user/profile", "/user/profile/**").authenticated()
+                        .requestMatchers("/user/tags", "/user/tags/**").authenticated()
+                        .requestMatchers("/user/social-links", "/user/social-links/**").authenticated()
+                        .requestMatchers("/user/topic-card/**").authenticated()
+                        // 公開列表 / 隨機 endpoints 需登入
+                        .requestMatchers("/members").authenticated()
+                        .requestMatchers("/tags").authenticated()
+                        .requestMatchers("/topics/**").authenticated()
+                        // 既有
                         .requestMatchers("/ws/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/sef/**").authenticated()
                         .anyRequest().permitAll())

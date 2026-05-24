@@ -15,4 +15,6 @@ public interface TagRepository extends JpaRepository<TagEntity, Long> {
     Optional<TagEntity> findByTagId(String tagId);
 
     List<TagEntity> findByType(String type);
+
+    List<TagEntity> findByTypeNot(String type);
 }

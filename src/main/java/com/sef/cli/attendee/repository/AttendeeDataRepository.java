@@ -12,4 +12,6 @@ import java.util.Optional;
 public interface AttendeeDataRepository extends JpaRepository<AttendeeDataEntity, Long> {
 
     Optional<AttendeeDataEntity> findByUserId(String userId);
+
+    boolean existsByUserId(String userId);
 }
