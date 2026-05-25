@@ -108,3 +108,15 @@ VALUES ('topic-004', '你的獸設是怎麼來的？', CURRENT_TIMESTAMP, CURREN
 
 INSERT INTO TOPIC (topic_id, content, created_date, last_modified_date)
 VALUES ('topic-005', '推薦一首最近在聽的歌！', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- ============================================================
+-- MESSAGES (聊天歷史 seed)
+-- ============================================================
+INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
+VALUES ('msg-seed-001', '111427449810799428954', 'TEXT', '大家好，歡迎來 chill lounge', NULL, NULL, DATEADD('MINUTE', -3, CURRENT_TIMESTAMP));
+
+INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
+VALUES ('msg-seed-002', 'demo-user-002', 'TEXT', '這是今天拍的攤位照片', JSON '["/uploads/chat/demo-1.jpg","/uploads/chat/demo-2.jpg"]', NULL, DATEADD('MINUTE', -2, CURRENT_TIMESTAMP));
+
+INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
+VALUES ('msg-seed-003', 'demo-user-003', 'STICKER', NULL, NULL, '/uploads/sticker/fox-hello.png', DATEADD('MINUTE', -1, CURRENT_TIMESTAMP));
