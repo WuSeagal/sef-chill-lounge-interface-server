@@ -51,7 +51,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
         session.getAttributes().put(ATTR_USER_ID, providerUserId);
 
-        onlineUserService.swap(providerUserId, session, oldSession -> {
+        onlineUserService.swap(providerUserId, session).ifPresent(oldSession -> {
             broadcastService.sendTo(oldSession, new ChatEnvelope<>(ChatEventType.KICKED, System.currentTimeMillis(), null));
             try {
                 oldSession.close(new CloseStatus(4271, "kicked"));

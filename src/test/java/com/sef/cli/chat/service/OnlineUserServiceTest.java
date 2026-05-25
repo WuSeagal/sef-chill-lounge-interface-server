@@ -4,7 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -19,26 +19,24 @@ class OnlineUserServiceTest {
     }
 
     @Test
-    void swapPutsNewSessionAndExposesNoOldSession() {
+    void swapPutsNewSessionAndReturnsEmptyWhenNoPreviousSession() {
         WebSocketSession session = mock(WebSocketSession.class);
-        AtomicReference<WebSocketSession> seenOld = new AtomicReference<>();
 
-        service.swap("u-1", session, seenOld::set);
+        Optional<WebSocketSession> displaced = service.swap("u-1", session);
 
-        assertThat(seenOld.get()).isNull();
+        assertThat(displaced).isEmpty();
         assertThat(service.getOnlineUserIds()).containsExactly("u-1");
     }
 
     @Test
-    void swapInvokesCallbackWithOldSessionWhenReplacing() {
+    void swapReturnsOldSessionWhenReplacing() {
         WebSocketSession oldSession = mock(WebSocketSession.class);
         WebSocketSession newSession = mock(WebSocketSession.class);
-        service.swap("u-1", oldSession, ignored -> {});
+        service.swap("u-1", oldSession);
 
-        AtomicReference<WebSocketSession> seenOld = new AtomicReference<>();
-        service.swap("u-1", newSession, seenOld::set);
+        Optional<WebSocketSession> displaced = service.swap("u-1", newSession);
 
-        assertThat(seenOld.get()).isSameAs(oldSession);
+        assertThat(displaced).contains(oldSession);
         assertThat(service.getSession("u-1")).isSameAs(newSession);
     }
 
@@ -46,8 +44,8 @@ class OnlineUserServiceTest {
     void removeOnlyHappensWhenSessionMatches() {
         WebSocketSession sessionA = mock(WebSocketSession.class);
         WebSocketSession sessionB = mock(WebSocketSession.class);
-        service.swap("u-1", sessionA, ignored -> {});
-        service.swap("u-1", sessionB, ignored -> {});
+        service.swap("u-1", sessionA);
+        service.swap("u-1", sessionB);
 
         service.remove("u-1", sessionA);
 
@@ -57,7 +55,7 @@ class OnlineUserServiceTest {
     @Test
     void removeClearsEntryWhenSessionMatches() {
         WebSocketSession session = mock(WebSocketSession.class);
-        service.swap("u-1", session, ignored -> {});
+        service.swap("u-1", session);
 
         service.remove("u-1", session);
 
@@ -67,7 +65,7 @@ class OnlineUserServiceTest {
     @Test
     void getOnlineUserIdsReturnsImmutableSnapshot() {
         WebSocketSession session = mock(WebSocketSession.class);
-        service.swap("u-1", session, ignored -> {});
+        service.swap("u-1", session);
 
         assertThat(service.getOnlineUserIds()).isUnmodifiable();
     }
