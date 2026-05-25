@@ -51,6 +51,14 @@ class MessageServiceTest {
     }
 
     @Test
+    void persistTextRejectsContentLongerThan500Chars() {
+        String tooLong = "a".repeat(501);
+        assertThatThrownBy(() -> messageService.persistText("u-1", tooLong, List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("message_content_too_long");
+    }
+
+    @Test
     void persistStickerRejectsBlankStickerImageUrl() {
         assertThatThrownBy(() -> messageService.persistSticker("u-1", " "))
                 .isInstanceOf(IllegalArgumentException.class)

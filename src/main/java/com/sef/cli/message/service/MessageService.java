@@ -27,6 +27,10 @@ public class MessageService {
         String normalizedContent = content == null ? "" : content.trim();
         List<String> normalizedImages = imageUrls == null ? List.of() : List.copyOf(imageUrls);
 
+        if (normalizedContent.length() > 500) {
+            throw new IllegalArgumentException("message_content_too_long");
+        }
+
         if (normalizedContent.isBlank() && normalizedImages.isEmpty()) {
             throw new IllegalArgumentException("message_content_required");
         }
