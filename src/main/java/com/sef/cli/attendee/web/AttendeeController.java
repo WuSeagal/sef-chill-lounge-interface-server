@@ -12,6 +12,10 @@ import com.sef.cli.api.response.TopicResponse;
 import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.service.AttendeeService;
 import com.sef.cli.attendee.web.map.AttendeeDtoMapper;
+import com.sef.cli.chat.event.ChatEnvelope;
+import com.sef.cli.chat.event.ChatEventType;
+import com.sef.cli.chat.event.response.ProfileUpdatedPayload;
+import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.common.ApiResponse;
 import com.sef.cli.topic.web.map.TopicDtoMapper;
 import com.sef.cli.user.entity.AdminUserEntity;
@@ -33,6 +37,7 @@ public class AttendeeController implements AttendeeApi {
     private final AttendeeService attendeeService;
     private final AttendeeDtoMapper attendeeDtoMapper;
     private final TopicDtoMapper topicDtoMapper;
+    private final ChatBroadcastService chatBroadcastService;
 
     @Override
     public ResponseEntity<ApiResponse<ProfileResponse>> getMyProfile() {
@@ -50,6 +55,11 @@ public class AttendeeController implements AttendeeApi {
     @Override
     public ResponseEntity<ApiResponse<ProfileResponse>> updateMyProfile(UpdateProfileRequest req) {
         AttendeeDataEntity e = attendeeService.updateProfile(currentUserId(), req);
+        chatBroadcastService.broadcastToAll(new ChatEnvelope<>(
+                ChatEventType.PROFILE_UPDATED,
+                System.currentTimeMillis(),
+                new ProfileUpdatedPayload(e.getUserId(), e.getFurName(), e.getAvatar())
+        ));
         return ResponseEntity.ok(ApiResponse.success(attendeeDtoMapper.toProfileResponse(e)));
     }
 

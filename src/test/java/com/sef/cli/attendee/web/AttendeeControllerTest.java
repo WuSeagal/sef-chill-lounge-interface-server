@@ -2,18 +2,26 @@ package com.sef.cli.attendee.web;
 
 import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.repository.AttendeeDataRepository;
+import com.sef.cli.chat.event.ChatEnvelope;
+import com.sef.cli.chat.event.ChatEventType;
+import com.sef.cli.chat.event.response.ProfileUpdatedPayload;
+import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.testutil.WithMockAdmin;
 import com.sef.cli.topic.entity.TopicEntity;
 import com.sef.cli.topic.repository.TopicRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +41,9 @@ class AttendeeControllerTest {
 
     @Autowired
     TopicRepository topicRepository;
+
+    @MockitoBean
+    ChatBroadcastService chatBroadcastService;
 
     private void seedProfile(String userId) {
         attendeeDataRepository.save(AttendeeDataEntity.builder()
@@ -112,6 +123,31 @@ class AttendeeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.furName").value("NEW"))
                 .andExpect(jsonPath("$.data.username").value("Foo"));
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-int-7b")
+    void postProfileUpdate_broadcastsProfileUpdated() throws Exception {
+        seedProfile("u-int-7b");
+        attendeeDataRepository.findByUserId("u-int-7b").ifPresent(p -> {
+            p.setAvatar("/old-avatar.png");
+            attendeeDataRepository.save(p);
+        });
+
+        mvc.perform(post("/user/profile/update").contentType(APPLICATION_JSON)
+                        .content("{\"furName\":\"NewFur\",\"avatar\":\"/new-avatar.png\"}"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(chatBroadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        assertThat(captor.getAllValues()).anySatisfy(envelope -> {
+            assertThat(envelope.type()).isEqualTo(ChatEventType.PROFILE_UPDATED);
+            assertThat(envelope.data()).isInstanceOf(ProfileUpdatedPayload.class);
+            ProfileUpdatedPayload payload = (ProfileUpdatedPayload) envelope.data();
+            assertThat(payload.userId()).isEqualTo("u-int-7b");
+            assertThat(payload.furName()).isEqualTo("NewFur");
+            assertThat(payload.avatar()).isEqualTo("/new-avatar.png");
+        });
     }
 
     @Test
