@@ -192,6 +192,32 @@ class ChatWebSocketHandlerTest {
     }
 
     @Test
+    void handleUnknownEnvelopeTypeRepliesWithError() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        handler.handleTextMessage(session, new TextMessage("{\"type\":\"GARBAGE\",\"timestamp\":1,\"data\":null}"));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.ERROR))).isTrue();
+        verify(messageService, never()).persistText(any(), any(), any());
+    }
+
+    @Test
+    void handleInvalidJsonRepliesWithError() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        handler.handleTextMessage(session, new TextMessage("not-valid-json"));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.ERROR))).isTrue();
+        verify(messageService, never()).persistText(any(), any(), any());
+    }
+
+    @Test
     void afterConnectionClosedRemovesAndBroadcastsPresence() throws Exception {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
