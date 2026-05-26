@@ -76,7 +76,7 @@ class ChatImageRetentionServiceTest {
         when(repository.findByUploadedDateBefore(ArgumentMatchers.any(LocalDateTime.class)))
                 .thenReturn(List.of(ChatImageAssetEntity.builder()
                         .id(1L).fileName("stale.jpg").build()));
-        when(repository.findAll()).thenReturn(List.of());
+        when(repository.findAllFileNames()).thenReturn(List.of());
 
         service.dailyCleanup();
 
@@ -90,7 +90,7 @@ class ChatImageRetentionServiceTest {
 
         when(repository.findByUploadedDateBefore(ArgumentMatchers.any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(repository.findAll()).thenReturn(List.of());
+        when(repository.findAllFileNames()).thenReturn(List.of());
 
         service.dailyCleanup();
 
@@ -103,8 +103,7 @@ class ChatImageRetentionServiceTest {
 
         when(repository.findByUploadedDateBefore(ArgumentMatchers.any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(repository.findAll()).thenReturn(List.of(
-                ChatImageAssetEntity.builder().fileName("known.jpg").build()));
+        when(repository.findAllFileNames()).thenReturn(List.of("known.jpg"));
 
         service.dailyCleanup();
 

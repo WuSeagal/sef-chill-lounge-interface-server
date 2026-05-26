@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -60,7 +61,8 @@ public class ChatImageUploadService {
         } catch (IOException e) {
             throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
-        byte[] header = bytes.length >= 12 ? Arrays.copyOf(bytes, 12) : Arrays.copyOf(bytes, 12);
+        // Arrays.copyOf 不足 12 自動補 0；不必三元
+        byte[] header = Arrays.copyOf(bytes, 12);
         ImageFormat byMagic = MagicByteValidator.detectFormat(header);
         if (byMagic == null || byMagic != byExt) {
             throw new UnsupportedMediaTypeException("unsupported_image_type");
@@ -73,7 +75,8 @@ public class ChatImageUploadService {
 
         Path dest = Paths.get(properties.getBasePath(), "image", fileName);
         try {
-            Files.write(dest, bytes);
+            // CREATE_NEW 拒絕覆蓋既有檔；若同秒同 user 撞 nano3 會 throw FileAlreadyExistsException
+            Files.write(dest, bytes, StandardOpenOption.CREATE_NEW);
         } catch (IOException e) {
             throw new RuntimeException("Failed to write image", e);
         }
@@ -83,7 +86,17 @@ public class ChatImageUploadService {
                 .uploadedBy(userId)
                 .fileSize(file.getSize())
                 .build();
-        repository.save(entity);
+        try {
+            repository.save(entity);
+        } catch (RuntimeException dbEx) {
+            // DB 寫入失敗 → 主動刪剛寫好的檔避免孤兒（排程兜底是 last resort）
+            try {
+                Files.deleteIfExists(dest);
+            } catch (IOException ignored) {
+                // best-effort：排程 dailyCleanup 仍會掃到
+            }
+            throw dbEx;
+        }
 
         retention.evictOldestIfOver();
 

@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,6 +23,8 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 public class ChatImageRetentionService {
+
+    private static final ZoneId TAIPEI = ZoneId.of("Asia/Taipei");
 
     private final ChatImageAssetRepository repository;
     private final ImageStorageProperties properties;
@@ -38,15 +41,16 @@ public class ChatImageRetentionService {
 
     @Scheduled(cron = "${sef-images.chat.cleanup-cron:0 0 3 * * *}", zone = "Asia/Taipei")
     public void dailyCleanup() {
-        LocalDateTime threshold = LocalDateTime.now().minusDays(properties.getChat().getTtlDays());
+        // 用 Asia/Taipei zone 對齊 cron 觸發時間；JVM TZ 在 prd docker 通常為 UTC，
+        // 不指定 zone 會讓 threshold 與排程觸發時間有 8 小時偏差。
+        LocalDateTime threshold = LocalDateTime.now(TAIPEI).minusDays(properties.getChat().getTtlDays());
         List<ChatImageAssetEntity> stale = repository.findByUploadedDateBefore(threshold);
         if (!stale.isEmpty()) {
             deleteFilesAndRows(stale);
             log.info("TTL cleanup removed {} stale image(s)", stale.size());
         }
 
-        Set<String> knownNames = new HashSet<>();
-        repository.findAll().forEach(e -> knownNames.add(e.getFileName()));
+        Set<String> knownNames = new HashSet<>(repository.findAllFileNames());
 
         Path dir = Paths.get(properties.getBasePath(), "image");
         if (!Files.exists(dir)) return;

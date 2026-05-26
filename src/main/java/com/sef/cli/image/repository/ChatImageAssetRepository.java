@@ -18,4 +18,7 @@ public interface ChatImageAssetRepository extends JpaRepository<ChatImageAssetEn
     }
 
     List<ChatImageAssetEntity> findByUploadedDateBefore(LocalDateTime threshold);
+
+    @Query("SELECT c.fileName FROM ChatImageAssetEntity c")
+    List<String> findAllFileNames();
 }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.file.Files;
@@ -123,6 +124,20 @@ class ChatImageUploadServiceTest {
         assertThatThrownBy(() -> service.upload(file, "u-1"))
                 .isInstanceOf(UnsupportedMediaTypeException.class)
                 .hasMessage("unsupported_image_type");
+    }
+
+    @Test
+    void deletesWrittenFileWhenDbSaveFails() throws Exception {
+        byte[] png = pngHeaderPadded();
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", png);
+        when(repository.save(any())).thenThrow(new DataIntegrityViolationException("UNIQUE"));
+
+        assertThatThrownBy(() -> service.upload(file, "u-1"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        // 寫入的檔案應該被主動刪除（避免孤兒）
+        long remaining = Files.list(tempDir.resolve("image")).count();
+        assertThat(remaining).isZero();
     }
 
     @Test
