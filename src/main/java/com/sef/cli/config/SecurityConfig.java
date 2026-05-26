@@ -81,6 +81,8 @@ public class SecurityConfig {
                         // 既有
                         .requestMatchers("/ws/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/sef/**").authenticated()
+                        // chat-image-upload
+                        .requestMatchers(HttpMethod.POST, "/upload/**").authenticated()
                         .anyRequest().permitAll())
                 .csrf(AbstractHttpConfigurer::disable)
                 .anonymous(AbstractHttpConfigurer::disable)
