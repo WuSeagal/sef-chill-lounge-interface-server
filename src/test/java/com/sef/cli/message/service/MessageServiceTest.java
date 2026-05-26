@@ -75,11 +75,29 @@ class MessageServiceTest {
             return entity;
         });
 
-        MessageEntity saved = messageService.persistText("google-001", " hello ", List.of("/a.jpg", "/b.jpg"));
+        MessageEntity saved = messageService.persistText("google-001", " hello ",
+                List.of("/image/a-260526143000-aaa.jpg", "/image/b-260526143000-bbb.jpg"));
 
         assertThat(saved.getMessageType()).isEqualTo(MessageType.TEXT);
         assertThat(saved.getContent()).isEqualTo("hello");
-        assertThat(saved.getImageUrls()).containsExactly("/a.jpg", "/b.jpg");
+        assertThat(saved.getImageUrls()).containsExactly(
+                "/image/a-260526143000-aaa.jpg", "/image/b-260526143000-bbb.jpg");
+    }
+
+    @Test
+    void persistTextRejectsImageUrlNotStartingWithImagePrefix() {
+        assertThatThrownBy(() -> messageService.persistText(
+                "u-1", "hello", List.of("/foreign/cdn.example.com/x.jpg")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("message_image_url_invalid_prefix");
+    }
+
+    @Test
+    void persistTextAcceptsImageUrlWithImagePrefix() {
+        when(messageRepository.save(any(MessageEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        MessageEntity result = messageService.persistText(
+                "u-1", "hello", List.of("/image/u1abcd-260526143000-x7K.png"));
+        assertThat(result.getImageUrls()).containsExactly("/image/u1abcd-260526143000-x7K.png");
     }
 
     @Test

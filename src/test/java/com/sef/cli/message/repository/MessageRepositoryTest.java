@@ -31,7 +31,7 @@ class MessageRepositoryTest {
                 .userId("message-test-001")
                 .messageType(MessageType.TEXT)
                 .content("hello with images")
-                .imageUrls(List.of("/images/a.jpg", "/images/b.jpg"))
+                .imageUrls(List.of("/image/a.jpg", "/image/b.jpg"))
                 .build();
 
         MessageEntity saved = messageRepository.saveAndFlush(entity);
@@ -39,7 +39,7 @@ class MessageRepositoryTest {
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getMessageId()).isNotBlank();
         assertThat(saved.getCreatedDate()).isNotNull();
-        assertThat(saved.getImageUrls()).containsExactly("/images/a.jpg", "/images/b.jpg");
+        assertThat(saved.getImageUrls()).containsExactly("/image/a.jpg", "/image/b.jpg");
     }
 
     @Test

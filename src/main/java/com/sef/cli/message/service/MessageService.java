@@ -39,6 +39,12 @@ public class MessageService {
             throw new IllegalArgumentException("message_images_limit_exceeded");
         }
 
+        for (String url : normalizedImages) {
+            if (url == null || !url.startsWith("/image/")) {
+                throw new IllegalArgumentException("message_image_url_invalid_prefix");
+            }
+        }
+
         return messageRepository.save(MessageEntity.builder()
                 .userId(userId)
                 .messageType(MessageType.TEXT)
