@@ -97,3 +97,15 @@ google-oauth:
   client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
   client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
   redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:http://localhost:9045/oauth2/callback}
+
+sef-images:
+  base-path: ${SEF_IMAGES_BASE_PATH:./data/images/}
+  max-file-size-mb: ${SEF_IMAGES_MAX_FILE_SIZE_MB:10}
+  chat:
+    url-prefix: ${SEF_IMAGES_CHAT_URL_PREFIX:/image/}
+    max-count: ${SEF_IMAGES_CHAT_MAX_COUNT:1000}
+    ttl-days: ${SEF_IMAGES_CHAT_TTL_DAYS:90}
+  user:
+    url-prefix: ${SEF_IMAGES_USER_URL_PREFIX:/user/}
+  sticker:
+    url-prefix: ${SEF_IMAGES_STICKER_URL_PREFIX:/sticker/}

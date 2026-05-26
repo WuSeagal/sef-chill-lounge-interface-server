@@ -42,3 +42,4 @@ src/main/resources/application-dev.yml
 docker/prd/*.jar
 docker/prd/*.tar
 docker/prd/*.tar_backup
+data/
