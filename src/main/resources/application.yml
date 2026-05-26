@@ -99,11 +99,12 @@ google-oauth:
   redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:http://localhost:9045/oauth2/callback}
 
 sef-images:
-  base-path: ${SEF_IMAGES_BASE_PATH:./data/images/}
+  base-path: ${SEF_IMAGES_BASE_PATH:./sef-cli/images/}
   max-file-size-mb: ${SEF_IMAGES_MAX_FILE_SIZE_MB:10}
   chat:
     url-prefix: ${SEF_IMAGES_CHAT_URL_PREFIX:/image/}
-    max-count: ${SEF_IMAGES_CHAT_MAX_COUNT:1000}
+    # NOTE: 暫時改為 3 以便手動驗證 FIFO eviction，正式上線前應改回 1000
+    max-count: ${SEF_IMAGES_CHAT_MAX_COUNT:3}
     ttl-days: ${SEF_IMAGES_CHAT_TTL_DAYS:90}
   user:
     url-prefix: ${SEF_IMAGES_USER_URL_PREFIX:/user/}
