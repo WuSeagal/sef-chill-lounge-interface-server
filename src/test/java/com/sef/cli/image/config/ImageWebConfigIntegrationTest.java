@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,9 +43,12 @@ class ImageWebConfigIntegrationTest {
     }
 
     @Test
-    void returns404ForMissingImage() throws Exception {
+    void missingImageReturnsFallbackSvg() throws Exception {
+        // 行為變更（error-page-handler change）：圖檔不存在改回 fallback SVG 200，不再 404
         mvc.perform(get("/image/missing.png"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("image/svg+xml"))
+                .andExpect(header().string("X-Image-Fallback", "true"));
     }
 
     @Test
