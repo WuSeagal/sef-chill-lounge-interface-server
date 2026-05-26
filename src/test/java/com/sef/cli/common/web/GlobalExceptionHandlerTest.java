@@ -100,6 +100,11 @@ class GlobalExceptionHandlerTest {
         public void unsupportedMedia() {
             throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
+
+        @GetMapping("/__test__/boom")
+        public void boom() {
+            throw new RuntimeException("boom for test");
+        }
     }
 
     @Test
@@ -197,5 +202,23 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.code").value(415))
                 .andExpect(jsonPath("$.message").value("unsupported_image_type"));
+    }
+
+    @Test
+    void mapsUnhandledRuntime_to500_withTraceId() throws Exception {
+        mvc.perform(get("/__test__/boom"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.message").value("系統暫時無法處理您的請求，請稍後再試"))
+                .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.matchesPattern("^[a-f0-9]{8}$")));
+    }
+
+    @Test
+    void mapsNoResourceFound_to404_withGenericMessage() throws Exception {
+        mvc.perform(get("/api/no-such-endpoint-xyz"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("找不到資源"))
+                .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.matchesPattern("^[a-f0-9]{8}$")));
     }
 }

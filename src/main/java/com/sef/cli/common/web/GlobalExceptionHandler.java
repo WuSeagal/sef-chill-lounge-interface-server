@@ -13,7 +13,11 @@ import com.sef.cli.common.exception.TagJunctionNotFoundException;
 import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,9 +25,18 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String GENERIC_500_MESSAGE = "系統暫時無法處理您的請求，請稍後再試";
+    private static final String GENERIC_404_MESSAGE = "找不到資源";
+
+    private static String newTraceId() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
 
     private ResponseEntity<ApiResponse<Object>> respond(HttpStatus status, String code) {
         return ResponseEntity.status(status).body(ApiResponse.fail(status.value(), code));
@@ -107,5 +120,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnsupportedMediaTypeException.class)
     public ResponseEntity<ApiResponse<Object>> unsupportedMedia(UnsupportedMediaTypeException e) {
         return respond(HttpStatus.UNSUPPORTED_MEDIA_TYPE, e.getMessage());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> noResourceFound(NoResourceFoundException e, HttpServletRequest req) {
+        String traceId = newTraceId();
+        log.info("[{}] 404 not found path={}", traceId, req.getRequestURI());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failWithTrace(HttpStatus.NOT_FOUND.value(), GENERIC_404_MESSAGE, traceId));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Object>> unhandled(Exception e, HttpServletRequest req) {
+        String traceId = newTraceId();
+        log.error("[{}] 500 unhandled path={}", traceId, req.getRequestURI(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.failWithTrace(HttpStatus.INTERNAL_SERVER_ERROR.value(), GENERIC_500_MESSAGE, traceId));
     }
 }
