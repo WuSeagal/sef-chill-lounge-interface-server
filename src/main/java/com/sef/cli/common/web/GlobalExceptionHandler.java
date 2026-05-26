@@ -10,6 +10,10 @@ import com.sef.cli.common.exception.ProfileNotFoundException;
 import com.sef.cli.common.exception.SocialLinkNotFoundException;
 import com.sef.cli.common.exception.TagAlreadyAssociatedException;
 import com.sef.cli.common.exception.TagJunctionNotFoundException;
+import com.sef.cli.image.web.exception.PayloadTooLargeException;
+import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
+
+import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -89,5 +93,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> accessDenied(AccessDeniedException e) {
         return respond(HttpStatus.FORBIDDEN, "forbidden");
+    }
+
+    @ExceptionHandler(PayloadTooLargeException.class)
+    public ResponseEntity<ApiResponse<Object>> payloadTooLarge(PayloadTooLargeException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiResponse<>(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                e.getMessage(),
+                Map.of("maxSizeMB", e.getMaxSizeMb())
+        ));
+    }
+
+    @ExceptionHandler(UnsupportedMediaTypeException.class)
+    public ResponseEntity<ApiResponse<Object>> unsupportedMedia(UnsupportedMediaTypeException e) {
+        return respond(HttpStatus.UNSUPPORTED_MEDIA_TYPE, e.getMessage());
     }
 }

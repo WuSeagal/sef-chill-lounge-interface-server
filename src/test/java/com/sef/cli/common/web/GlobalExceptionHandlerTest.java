@@ -9,6 +9,8 @@ import com.sef.cli.common.exception.ProfileNotFoundException;
 import com.sef.cli.common.exception.SocialLinkNotFoundException;
 import com.sef.cli.common.exception.TagAlreadyAssociatedException;
 import com.sef.cli.common.exception.TagJunctionNotFoundException;
+import com.sef.cli.image.web.exception.PayloadTooLargeException;
+import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -87,6 +89,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/__test__/data-integrity")
         public void dataIntegrity() {
             throw new DataIntegrityViolationException("UNIQUE constraint violated");
+        }
+
+        @GetMapping("/__test__/payload-too-large")
+        public void payloadTooLarge() {
+            throw new PayloadTooLargeException("file_too_large", 10);
+        }
+
+        @GetMapping("/__test__/unsupported-media")
+        public void unsupportedMedia() {
+            throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
     }
 
@@ -168,5 +180,22 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/__test__/data-integrity"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("constraint_violation"));
+    }
+
+    @Test
+    void mapsPayloadTooLarge_to413_withMaxSizeData() throws Exception {
+        mvc.perform(get("/__test__/payload-too-large"))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value(413))
+                .andExpect(jsonPath("$.message").value("file_too_large"))
+                .andExpect(jsonPath("$.data.maxSizeMB").value(10));
+    }
+
+    @Test
+    void mapsUnsupportedMediaType_to415() throws Exception {
+        mvc.perform(get("/__test__/unsupported-media"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value(415))
+                .andExpect(jsonPath("$.message").value("unsupported_image_type"));
     }
 }
