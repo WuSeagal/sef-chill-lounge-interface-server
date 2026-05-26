@@ -83,6 +83,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/sef/**").authenticated()
                         // chat-image-upload
                         .requestMatchers(HttpMethod.POST, "/upload/**").authenticated()
+                        // 公開圖片靜態資源
+                        .requestMatchers(HttpMethod.GET, "/image/**", "/user/**", "/sticker/**").permitAll()
                         .anyRequest().permitAll())
                 .csrf(AbstractHttpConfigurer::disable)
                 .anonymous(AbstractHttpConfigurer::disable)
