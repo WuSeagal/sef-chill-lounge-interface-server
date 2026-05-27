@@ -41,6 +41,22 @@ class ImageFallbackResolverTest {
     }
 
     @Test
+    void fallbackResourceCarriesNoStoreAndFallbackHeadersAsHttpResource() {
+        ResourceResolverChain chain = mock(ResourceResolverChain.class);
+        when(chain.resolveResource(any(), any(), any())).thenReturn(null);
+
+        ImageFallbackResolver r = new ImageFallbackResolver();
+        Resource result = r.resolveResource(null, "missing.jpg", List.of(), chain);
+
+        // 必須是 HttpResource，讓 ResourceHttpRequestHandler 在 body 寫出前套用 header（真實容器有效）
+        assertThat(result).isInstanceOf(org.springframework.web.servlet.resource.HttpResource.class);
+        org.springframework.http.HttpHeaders h =
+                ((org.springframework.web.servlet.resource.HttpResource) result).getResponseHeaders();
+        assertThat(h.getCacheControl()).contains("no-store");
+        assertThat(h.getFirst("X-Image-Fallback")).isEqualTo("true");
+    }
+
+    @Test
     void resolveUrlPathDelegatesToChain() {
         ResourceResolverChain chain = mock(ResourceResolverChain.class);
         when(chain.resolveUrlPath(any(), any())).thenReturn(null);

@@ -221,4 +221,28 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("找不到資源"))
                 .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.matchesPattern("^[a-f0-9]{8}$")));
     }
+
+    @Test
+    void noResourceFound_withHtmlAccept_returnsStyledHtml() throws Exception {
+        mvc.perform(get("/api/no-such-endpoint-xyz")
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isNotFound())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentTypeCompatibleWith(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("error-page.css")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("找不到頁面")));
+    }
+
+    @Test
+    void boom_withHtmlAccept_returns500Html() throws Exception {
+        mvc.perform(get("/__test__/boom")
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isInternalServerError())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentTypeCompatibleWith(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("伺服器錯誤")));
+    }
 }

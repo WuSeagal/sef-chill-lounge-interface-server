@@ -20,13 +20,13 @@ VALUES (
 -- ATTENDEE_DATA (測試參加者)
 -- ============================================================
 INSERT INTO ATTENDEE_DATA (user_id, username, fur_name, avatar, avatar_color, topic_id, created_date, last_modified_date)
-VALUES ('111427449810799428954', 'seagalhsu00942', '席格', '/uploads/avatar/seagal.png', '#4FC3F7', 'topic-001', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('111427449810799428954', 'seagalhsu00942', '席格', '/user/seagal.png', '#4FC3F7', 'topic-001', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO ATTENDEE_DATA (user_id, username, fur_name, avatar, avatar_color, topic_id, created_date, last_modified_date)
-VALUES ('demo-user-002', 'wolfie42', '小灰狼', '/uploads/avatar/wolfie.png', '#FF7043', 'topic-002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('demo-user-002', 'wolfie42', '小灰狼', '/user/wolfie.png', '#FF7043', 'topic-002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO ATTENDEE_DATA (user_id, username, fur_name, avatar, avatar_color, topic_id, created_date, last_modified_date)
-VALUES ('demo-user-003', 'foxfox', '阿狐', '/uploads/avatar/fox.png', '#AB47BC', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('demo-user-003', 'foxfox', '阿狐', '/user/fox.png', '#AB47BC', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- ============================================================
 -- TAG (預設 TAG + 自訂 TAG)
@@ -83,13 +83,13 @@ VALUES ('demo-user-002', 'twitter', 'https://twitter.com/wolfie42', CURRENT_TIME
 -- ATTENDEE_STICKER (個人貼圖)
 -- ============================================================
 INSERT INTO ATTENDEE_STICKER (user_id, sticker_no, sticker, created_date, last_modified_date)
-VALUES ('111427449810799428954', 1, '/uploads/sticker/seagal-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('111427449810799428954', 1, '/sticker/seagal-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO ATTENDEE_STICKER (user_id, sticker_no, sticker, created_date, last_modified_date)
-VALUES ('111427449810799428954', 2, '/uploads/sticker/seagal-2.png', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('111427449810799428954', 2, '/sticker/seagal-2.png', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO ATTENDEE_STICKER (user_id, sticker_no, sticker, created_date, last_modified_date)
-VALUES ('demo-user-002', 1, '/uploads/sticker/wolfie-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('demo-user-002', 1, '/sticker/wolfie-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- ============================================================
 -- TOPIC (話題卡池)
@@ -116,7 +116,7 @@ INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, st
 VALUES ('msg-seed-001', '111427449810799428954', 'TEXT', '大家好，歡迎來 chill lounge', NULL, NULL, DATEADD('MINUTE', -3, CURRENT_TIMESTAMP));
 
 INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
-VALUES ('msg-seed-002', 'demo-user-002', 'TEXT', '這是今天拍的攤位照片', JSON '["/uploads/chat/demo-1.jpg","/uploads/chat/demo-2.jpg"]', NULL, DATEADD('MINUTE', -2, CURRENT_TIMESTAMP));
+VALUES ('msg-seed-002', 'demo-user-002', 'TEXT', '這是今天拍的攤位照片', JSON '["/image/demo-1.jpg","/image/demo-2.jpg"]', NULL, DATEADD('MINUTE', -2, CURRENT_TIMESTAMP));
 
 INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
-VALUES ('msg-seed-003', 'demo-user-003', 'STICKER', NULL, NULL, '/uploads/sticker/fox-hello.png', DATEADD('MINUTE', -1, CURRENT_TIMESTAMP));
+VALUES ('msg-seed-003', 'demo-user-003', 'STICKER', NULL, NULL, '/sticker/fox-hello.png', DATEADD('MINUTE', -1, CURRENT_TIMESTAMP));

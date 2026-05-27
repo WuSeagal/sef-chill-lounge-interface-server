@@ -34,8 +34,19 @@ public class GlobalExceptionHandler {
     private static final String GENERIC_500_MESSAGE = "系統暫時無法處理您的請求，請稍後再試";
     private static final String GENERIC_404_MESSAGE = "找不到資源";
 
+    private final com.sef.cli.common.web.error.CustomErrorPageRenderer errorPageRenderer;
+
+    public GlobalExceptionHandler(com.sef.cli.common.web.error.CustomErrorPageRenderer errorPageRenderer) {
+        this.errorPageRenderer = errorPageRenderer;
+    }
+
     private static String newTraceId() {
         return UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    private boolean wantsHtml(HttpServletRequest req) {
+        String accept = req.getHeader("Accept");
+        return accept != null && accept.contains(org.springframework.http.MediaType.TEXT_HTML_VALUE);
     }
 
     private ResponseEntity<ApiResponse<Object>> respond(HttpStatus status, String code) {
@@ -123,17 +134,27 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Object>> noResourceFound(NoResourceFoundException e, HttpServletRequest req) {
+    public ResponseEntity<?> noResourceFound(NoResourceFoundException e, HttpServletRequest req) {
         String traceId = newTraceId();
         log.info("[{}] 404 not found path={}", traceId, req.getRequestURI());
+        if (wantsHtml(req)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(new org.springframework.http.MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8))
+                    .body(errorPageRenderer.render(404, req.getRequestURI(), req.getContextPath()));
+        }
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failWithTrace(HttpStatus.NOT_FOUND.value(), GENERIC_404_MESSAGE, traceId));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Object>> unhandled(Exception e, HttpServletRequest req) {
+    public ResponseEntity<?> unhandled(Exception e, HttpServletRequest req) {
         String traceId = newTraceId();
         log.error("[{}] 500 unhandled path={}", traceId, req.getRequestURI(), e);
+        if (wantsHtml(req)) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(new org.springframework.http.MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8))
+                    .body(errorPageRenderer.render(500, req.getRequestURI(), req.getContextPath()));
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.failWithTrace(HttpStatus.INTERNAL_SERVER_ERROR.value(), GENERIC_500_MESSAGE, traceId));
     }

@@ -23,13 +23,28 @@ class ImageFallbackIntegrationTest {
 
     @Test
     void missingChatImageReturnsFallbackSvg() throws Exception {
+        // fallback 是「臨時頂替」，不可被快取（否則上傳真檔後仍回 SVG）→ no-store
         MvcResult r = mvc.perform(get("/image/never-exists-abc.jpg"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("image/svg+xml"))
                 .andExpect(header().string("X-Image-Fallback", "true"))
-                .andExpect(header().string("Cache-Control", containsString("max-age=86400")))
+                .andExpect(header().string("Cache-Control", containsString("no-store")))
                 .andReturn();
-        assertThat(r.getResponse().getContentAsString()).startsWith("<svg");
+        String svg = r.getResponse().getContentAsString();
+        assertThat(svg).startsWith("<svg");
+        // fallback SVG 必須有明確 intrinsic width/height，否則在 <img> 的 width:auto 容器內會塌成 0×0
+        assertThat(svg).contains("width=\"150\"");
+        assertThat(svg).contains("height=\"150\"");
+    }
+
+    @Test
+    void missingSvgFileStillSetsFallbackHeader() throws Exception {
+        // 即使請求的副檔名是 .svg（avatar 可上傳 .svg），缺檔走 fallback 時仍須設 header；
+        // 不可用「URI 結尾是否 .svg」推測，須由 resolver 主動標記 request attribute。
+        mvc.perform(get("/user/never-exists.svg"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("image/svg+xml"))
+                .andExpect(header().string("X-Image-Fallback", "true"));
     }
 
     @Test
