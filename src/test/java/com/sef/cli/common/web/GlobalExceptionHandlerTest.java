@@ -116,6 +116,16 @@ class GlobalExceptionHandlerTest {
             // ignore
         }
 
+        @GetMapping("/__test__/throw-auth")
+        public void throwAuth() {
+            throw new org.springframework.security.authentication.InsufficientAuthenticationException("test");
+        }
+
+        @GetMapping("/__test__/throw-denied")
+        public void throwDenied() {
+            throw new org.springframework.security.access.AccessDeniedException("test");
+        }
+
         public static class ValidatePayload {
             @jakarta.validation.constraints.NotBlank
             public String furName;
@@ -260,6 +270,28 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/__test__/needs-param"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void mapsAuthenticationException_browser_returns401StyledHtml() throws Exception {
+        mvc.perform(get("/__test__/throw-auth")
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isUnauthorized())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentTypeCompatibleWith(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("請先登入")));
+    }
+
+    @Test
+    void mapsAccessDeniedException_browser_returns403StyledHtml() throws Exception {
+        mvc.perform(get("/__test__/throw-denied")
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isForbidden())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentTypeCompatibleWith(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("沒有權限")));
     }
 
     @Test

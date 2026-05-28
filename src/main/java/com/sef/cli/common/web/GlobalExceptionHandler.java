@@ -172,13 +172,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Object>> unauthenticated(AuthenticationException e) {
-        return respond(HttpStatus.UNAUTHORIZED, "unauthenticated");
+    public ResponseEntity<?> unauthenticated(AuthenticationException e, HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.UNAUTHORIZED, "unauthenticated", req);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Object>> accessDenied(AccessDeniedException e) {
-        return respond(HttpStatus.FORBIDDEN, "forbidden");
+    public ResponseEntity<?> accessDenied(AccessDeniedException e, HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.FORBIDDEN, "forbidden", req);
     }
 
     @ExceptionHandler(PayloadTooLargeException.class)
