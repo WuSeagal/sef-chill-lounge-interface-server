@@ -66,6 +66,7 @@ CREATE TABLE TAG (
     tag_id              VARCHAR(64) NOT NULL,
     type                VARCHAR(64) NOT NULL,
     content             VARCHAR(256) NOT NULL,
+    is_custom           BOOLEAN NOT NULL DEFAULT FALSE,
     created_date        TIMESTAMP,
     last_modified_date  TIMESTAMP,
     CONSTRAINT unique_tag_id UNIQUE (tag_id)

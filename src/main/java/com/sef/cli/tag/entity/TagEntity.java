@@ -44,6 +44,9 @@ public class TagEntity {
     @Column(name = "content", nullable = false)
     private String content;
 
+    @Column(name = "is_custom", nullable = false)
+    private boolean isCustom;
+
     @CreatedDate
     @Column(name = "CREATED_DATE")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
