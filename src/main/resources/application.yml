@@ -89,6 +89,9 @@ springdoc:
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:9041}
+  tag:
+    max-per-user: ${APP_TAG_MAX_PER_USER:20}
+    custom-holders-threshold: ${APP_TAG_CUSTOM_HOLDERS_THRESHOLD:5}
 
 frontend:
   base-url: ${FRONTEND_BASE_URL:http://localhost:9045}
