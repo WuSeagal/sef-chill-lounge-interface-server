@@ -89,4 +89,20 @@ class AttendeeTagControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("tag_junction_not_found"));
     }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-tg-6")
+    void postTags_returns400_whenLimitExceeded() throws Exception {
+        for (int i = 1; i <= 20; i++) {
+            attendeeTagRepository.save(AttendeeTagEntity.builder()
+                    .userId("u-tg-6").tagId("filler-" + i).build());
+        }
+        TagEntity anyTag = tagRepository.findAll().get(0);
+
+        mvc.perform(post("/user/tags").contentType(APPLICATION_JSON)
+                        .content("{\"tagId\":\"" + anyTag.getTagId() + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("tag_limit_exceeded"));
+    }
 }
