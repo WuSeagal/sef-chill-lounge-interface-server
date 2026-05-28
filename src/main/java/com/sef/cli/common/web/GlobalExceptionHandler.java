@@ -14,12 +14,14 @@ import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -51,6 +53,16 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiResponse<Object>> respond(HttpStatus status, String code) {
         return ResponseEntity.status(status).body(ApiResponse.fail(status.value(), code));
+    }
+
+    private ResponseEntity<?> respondAcceptAware(HttpStatus status, String jsonMessage, HttpServletRequest req) {
+        if (wantsHtml(req)) {
+            return ResponseEntity.status(status)
+                    .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
+                    .body(errorPageRenderer.render(status.value(), req.getRequestURI(), req.getContextPath()));
+        }
+        return ResponseEntity.status(status)
+                .body(ApiResponse.fail(status.value(), jsonMessage));
     }
 
     @ExceptionHandler(ProfileNotFoundException.class)
