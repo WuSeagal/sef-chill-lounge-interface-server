@@ -263,6 +263,23 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void mapsMethodNotSupported_to405() throws Exception {
+        mvc.perform(get("/__test__/validate"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(405));
+    }
+
+    @Test
+    void mapsMediaTypeNotSupported_to415() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/__test__/validate")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_XML)
+                        .content("<x/>"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value(415));
+    }
+
+    @Test
     void mapsMethodArgumentNotValid_browser_returns400StyledHtml() throws Exception {
         String invalidJson = "{\"furName\":\"\",\"email\":\"not-email\"}";
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders

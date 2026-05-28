@@ -151,6 +151,20 @@ public class GlobalExceptionHandler {
         return respondAcceptAware(HttpStatus.BAD_REQUEST, e.getMessage(), req);
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<?> methodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException e,
+            HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.METHOD_NOT_ALLOWED, e.getMessage(), req);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<?> mediaTypeNotSupported(
+            org.springframework.web.HttpMediaTypeNotSupportedException e,
+            HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.UNSUPPORTED_MEDIA_TYPE, e.getMessage(), req);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> dataIntegrity(DataIntegrityViolationException e) {
         // race-condition layer-2 防禦：UNIQUE constraint 撞到
