@@ -1,5 +1,7 @@
 package com.sef.cli.tag.web;
 
+import com.sef.cli.attendee.entity.AttendeeTagEntity;
+import com.sef.cli.attendee.repository.AttendeeTagRepository;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.tag.repository.TagRepository;
 import com.sef.cli.testutil.WithMockAdmin;
@@ -10,8 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.hamcrest.Matchers.everyItem;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,35 +29,48 @@ class TagControllerTest {
     @Autowired
     TagRepository tagRepository;
 
+    @Autowired
+    AttendeeTagRepository attendeeTagRepository;
+
     @Test
     @WithMockAdmin(providerUserId = "u-tg-list-1")
-    void getTags_returnsNonCustomOnly() throws Exception {
-        // seed 內有 species / hobby / custom；GET /tags 應只回非 custom
+    void getTags_returnsGroupedMapWithAllTypes() throws Exception {
         mvc.perform(get("/tags"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data[*].type", everyItem(not(is("custom")))));
+                .andExpect(jsonPath("$.data.ROLE").isArray())
+                .andExpect(jsonPath("$.data.LANGUAGE").isArray())
+                .andExpect(jsonPath("$.data.FRAMEWORK").isArray())
+                .andExpect(jsonPath("$.data.DATABASE").isArray())
+                .andExpect(jsonPath("$.data.DEVOPS").isArray())
+                .andExpect(jsonPath("$.data.CUSTOM").isArray());
     }
 
     @Test
     @WithMockAdmin(providerUserId = "u-tg-list-2")
-    void getTags_includesCustomCreatedAfterIsExcluded() throws Exception {
-        TagEntity custom = TagEntity.builder().type("custom").content("test-custom").build();
-        tagRepository.save(custom);
+    void getTags_excludesLowHolderCustom() throws Exception {
+        TagEntity low = tagRepository.save(TagEntity.builder()
+                .type("CUSTOM").content("only-creator-test").isCustom(true).build());
+        attendeeTagRepository.save(AttendeeTagEntity.builder()
+                .userId("creator-x").tagId(low.getTagId()).build());
 
         mvc.perform(get("/tags"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[*].type", everyItem(not(is("custom")))));
+                .andExpect(jsonPath("$.data.CUSTOM[*].content", not(hasItem("only-creator-test"))));
     }
 
     @Test
     @WithMockAdmin(providerUserId = "u-tg-list-3")
-    void getTags_emptyArray_whenAllCustomOrNone() throws Exception {
-        tagRepository.deleteAll();
+    void getTags_includesHighHolderCustom() throws Exception {
+        TagEntity high = tagRepository.save(TagEntity.builder()
+                .type("CUSTOM").content("popular-test").isCustom(true).build());
+        for (int i = 1; i <= 5; i++) {
+            attendeeTagRepository.save(AttendeeTagEntity.builder()
+                    .userId("u-pop-" + i).tagId(high.getTagId()).build());
+        }
 
         mvc.perform(get("/tags"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(0));
+                .andExpect(jsonPath("$.data.CUSTOM[*].content", hasItem("popular-test")));
     }
 
     @Test

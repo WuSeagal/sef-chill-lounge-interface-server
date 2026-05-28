@@ -8,11 +8,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "Tag List API", description = "")
 public interface TagApi {
 
-    @Operation(summary = "列出所有非 custom（即現成可選）tag", description = "供 Onboarding / Dashboard 編輯時顯示可選清單")
+    @Operation(summary = "依 type 分組列出可選 TAG", description = "排除 isCustom=true 且 holders 數量未達 threshold 的 tag。回傳 6 個 type key 的 Map(空陣列補齊)。")
     @GetMapping("/tags")
-    ResponseEntity<ApiResponse<List<TagResponse>>> getSelectableTags();
+    ResponseEntity<ApiResponse<Map<String, List<TagResponse>>>> getSelectableTags();
 }
