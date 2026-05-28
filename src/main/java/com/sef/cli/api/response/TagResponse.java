@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TagResponse {
     private String tagId;
-    private String type;       // "default" | "custom"
+    private String type;
     private String content;
+    private boolean isCustom;
 }
