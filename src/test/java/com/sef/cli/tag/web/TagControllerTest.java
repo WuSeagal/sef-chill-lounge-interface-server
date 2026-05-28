@@ -12,7 +12,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,7 +44,11 @@ class TagControllerTest {
                 .andExpect(jsonPath("$.data.FRAMEWORK").isArray())
                 .andExpect(jsonPath("$.data.DATABASE").isArray())
                 .andExpect(jsonPath("$.data.DEVOPS").isArray())
-                .andExpect(jsonPath("$.data.CUSTOM").isArray());
+                .andExpect(jsonPath("$.data.CUSTOM").isArray())
+                // 確認每個 type bucket 內的 tag 確實是該 type — 防 grouping bug
+                .andExpect(jsonPath("$.data.ROLE[*].type", everyItem(is("ROLE"))))
+                .andExpect(jsonPath("$.data.LANGUAGE[*].type", everyItem(is("LANGUAGE"))))
+                .andExpect(jsonPath("$.data.CUSTOM[*].type", everyItem(is("CUSTOM"))));
     }
 
     @Test

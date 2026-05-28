@@ -23,6 +23,9 @@ public class AttendeeTagService {
 
     @Transactional
     public TagEntity addTag(String userId, AddTagRequest req) {
+        // TOCTOU: count vs insert 之間理論上有 race window,但 tag adds 為 user-initiated
+        // 低頻動作,單機部署 + 同一 user 通常單一 session,實務上影響可忽略。若未來需嚴格,
+        // 可改 SERIALIZABLE isolation 或在 user 層級 row lock。
         if (attendeeTagRepository.countByUserId(userId) >= tagProperties.getMaxPerUser()) {
             throw new TagLimitExceededException();
         }

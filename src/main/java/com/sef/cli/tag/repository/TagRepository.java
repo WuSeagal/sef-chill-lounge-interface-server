@@ -18,8 +18,6 @@ public interface TagRepository extends JpaRepository<TagEntity, Long> {
 
     List<TagEntity> findByType(String type);
 
-    List<TagEntity> findByTypeNot(String type);
-
     @Query("""
             SELECT t FROM TagEntity t
             WHERE t.isCustom = false
