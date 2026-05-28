@@ -115,6 +115,28 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<?> methodArgumentNotValid(
+            org.springframework.web.bind.MethodArgumentNotValidException e,
+            HttpServletRequest req) {
+        String summary = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + " " + fe.getDefaultMessage())
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("validation_failed");
+        return respondAcceptAware(HttpStatus.BAD_REQUEST, summary, req);
+    }
+
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<?> constraintViolation(
+            jakarta.validation.ConstraintViolationException e,
+            HttpServletRequest req) {
+        String summary = e.getConstraintViolations().stream()
+                .map(cv -> cv.getPropertyPath() + " " + cv.getMessage())
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("constraint_violation");
+        return respondAcceptAware(HttpStatus.BAD_REQUEST, summary, req);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> dataIntegrity(DataIntegrityViolationException e) {
         // race-condition layer-2 防禦：UNIQUE constraint 撞到

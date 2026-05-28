@@ -105,6 +105,18 @@ class GlobalExceptionHandlerTest {
         public void boom() {
             throw new RuntimeException("boom for test");
         }
+
+        @org.springframework.web.bind.annotation.PostMapping(value = "/__test__/validate", consumes = "application/json")
+        public void validate(@org.springframework.web.bind.annotation.RequestBody @jakarta.validation.Valid ValidatePayload payload) {
+            // ignore
+        }
+
+        public static class ValidatePayload {
+            @jakarta.validation.constraints.NotBlank
+            public String furName;
+            @jakarta.validation.constraints.Email
+            public String email;
+        }
     }
 
     @Test
@@ -211,6 +223,36 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.code").value(500))
                 .andExpect(jsonPath("$.message").value("系統暫時無法處理您的請求，請稍後再試"))
                 .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.matchesPattern("^[a-f0-9]{8}$")));
+    }
+
+    @Test
+    void mapsMethodArgumentNotValid_to400_withFieldErrorsMessage() throws Exception {
+        String invalidJson = "{\"furName\":\"\",\"email\":\"not-email\"}";
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/__test__/validate")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message",
+                        org.hamcrest.Matchers.anyOf(
+                                org.hamcrest.Matchers.containsString("furName"),
+                                org.hamcrest.Matchers.containsString("email"))));
+    }
+
+    @Test
+    void mapsMethodArgumentNotValid_browser_returns400StyledHtml() throws Exception {
+        String invalidJson = "{\"furName\":\"\",\"email\":\"not-email\"}";
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/__test__/validate")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(invalidJson)
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentTypeCompatibleWith(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("請求格式不正確")));
     }
 
     @Test
