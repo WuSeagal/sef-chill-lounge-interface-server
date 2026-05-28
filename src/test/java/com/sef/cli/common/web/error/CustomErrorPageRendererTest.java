@@ -32,6 +32,35 @@ class CustomErrorPageRendererTest {
     }
 
     @Test
+    void renders401WithLoginCopy() {
+        String html = renderer.render(401, "/messages", "");
+        assertThat(html).contains("請先登入");
+        assertThat(html).contains("CODE 401");
+        assertThat(html).contains("回到聊天");
+    }
+
+    @Test
+    void renders400WithBadRequestCopy() {
+        String html = renderer.render(400, "/x", "");
+        assertThat(html).contains("請求格式不正確");
+        assertThat(html).contains("CODE 400");
+    }
+
+    @Test
+    void renders405WithBadRequestCopy() {
+        String html = renderer.render(405, "/x", "");
+        assertThat(html).contains("請求格式不正確");
+        assertThat(html).contains("CODE 405");
+    }
+
+    @Test
+    void renders415WithBadRequestCopy() {
+        String html = renderer.render(415, "/x", "");
+        assertThat(html).contains("請求格式不正確");
+        assertThat(html).contains("CODE 415");
+    }
+
+    @Test
     void prefixesContextPathOnBackendAssetsOnly() {
         String html = renderer.render(404, "/x", "/sef-cli");
         assertThat(html).contains("/sef-cli/error-page/error-page.css");

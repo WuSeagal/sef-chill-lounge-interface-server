@@ -51,8 +51,14 @@ public class CustomErrorPageRenderer {
     }
 
     private ErrorCopy copyFor(int status) {
+        if (status == 401) {
+            return new ErrorCopy("請先登入", "你需要登入才能查看這個頁面。");
+        }
         if (status == 403) {
             return new ErrorCopy("沒有權限", "你目前不能查看這個頁面。");
+        }
+        if (status == 400 || status == 405 || status == 415) {
+            return new ErrorCopy("請求格式不正確", "伺服器無法處理這個請求，請檢查網址、方法與內容格式。");
         }
         if (status >= 500) {
             return new ErrorCopy("伺服器錯誤", "伺服器在處理這個請求時發生問題，請稍後再試。");
