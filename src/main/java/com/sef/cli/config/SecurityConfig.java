@@ -1,7 +1,7 @@
 package com.sef.cli.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.http.HttpServletResponse;
+import com.sef.cli.common.web.error.StyledAccessDeniedHandler;
+import com.sef.cli.common.web.error.StyledAuthenticationEntryPoint;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +17,6 @@ import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 import org.springframework.web.cors.CorsConfiguration;
 
-import java.io.IOException;
 import java.util.List;
 
 @Configuration
@@ -38,6 +37,15 @@ public class SecurityConfig {
     @Value("${server.servlet.session.cookie.secure:true}")
     private boolean secureCookie;
 
+    private final StyledAuthenticationEntryPoint authenticationEntryPoint;
+    private final StyledAccessDeniedHandler accessDeniedHandler;
+
+    public SecurityConfig(StyledAuthenticationEntryPoint authenticationEntryPoint,
+                          StyledAccessDeniedHandler accessDeniedHandler) {
+        this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
+    }
+
     @Bean
     public CookieSerializer cookieSerializer() {
         DefaultCookieSerializer serializer = new DefaultCookieSerializer();
@@ -55,14 +63,8 @@ public class SecurityConfig {
         return httpSecurity
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            writeJson(response, com.sef.cli.common.ApiResponse.fail(401, "unauthenticated"));
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                            writeJson(response, com.sef.cli.common.ApiResponse.fail(403, "forbidden"));
-                        }))
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(requests -> requests
                         // OAuth / auth 公開路徑
                         .requestMatchers("/check-auth", "/logout", "/user/googleAuth").permitAll()
@@ -99,10 +101,5 @@ public class SecurityConfig {
                     return config;
                 }))
                 .build();
-    }
-
-    private void writeJson(HttpServletResponse response, Object obj) throws IOException {
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write(new ObjectMapper().writeValueAsString(obj));
     }
 }
