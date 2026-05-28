@@ -111,6 +111,11 @@ class GlobalExceptionHandlerTest {
             // ignore
         }
 
+        @GetMapping("/__test__/needs-param")
+        public void needsParam(@org.springframework.web.bind.annotation.RequestParam String required) {
+            // ignore
+        }
+
         public static class ValidatePayload {
             @jakarta.validation.constraints.NotBlank
             public String furName;
@@ -238,6 +243,23 @@ class GlobalExceptionHandlerTest {
                         org.hamcrest.Matchers.anyOf(
                                 org.hamcrest.Matchers.containsString("furName"),
                                 org.hamcrest.Matchers.containsString("email"))));
+    }
+
+    @Test
+    void mapsHttpMessageNotReadable_to400_malformedJson() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/__test__/validate")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{ invalid json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void mapsMissingRequestParameter_to400() throws Exception {
+        mvc.perform(get("/__test__/needs-param"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
     }
 
     @Test

@@ -137,6 +137,20 @@ public class GlobalExceptionHandler {
         return respondAcceptAware(HttpStatus.BAD_REQUEST, summary, req);
     }
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<?> messageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException e,
+            HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.BAD_REQUEST, "malformed_request_body", req);
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<?> missingRequestParameter(
+            org.springframework.web.bind.MissingServletRequestParameterException e,
+            HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.BAD_REQUEST, e.getMessage(), req);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> dataIntegrity(DataIntegrityViolationException e) {
         // race-condition layer-2 防禦：UNIQUE constraint 撞到
