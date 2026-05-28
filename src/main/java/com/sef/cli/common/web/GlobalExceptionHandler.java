@@ -10,6 +10,7 @@ import com.sef.cli.common.exception.ProfileNotFoundException;
 import com.sef.cli.common.exception.SocialLinkNotFoundException;
 import com.sef.cli.common.exception.TagAlreadyAssociatedException;
 import com.sef.cli.common.exception.TagJunctionNotFoundException;
+import com.sef.cli.common.exception.TagLimitExceededException;
 import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
 
@@ -78,6 +79,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TagAlreadyAssociatedException.class)
     public ResponseEntity<ApiResponse<Object>> tagAlreadyAssociated(TagAlreadyAssociatedException e) {
         return respond(HttpStatus.CONFLICT, "tag_already_associated");
+    }
+
+    @ExceptionHandler(TagLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> tagLimitExceeded(TagLimitExceededException e) {
+        return respond(HttpStatus.BAD_REQUEST, "tag_limit_exceeded");
     }
 
     @ExceptionHandler(TagJunctionNotFoundException.class)

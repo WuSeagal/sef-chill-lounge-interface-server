@@ -23,6 +23,8 @@ public interface AttendeeTagRepository extends JpaRepository<AttendeeTagEntity, 
 
     void deleteByUserIdAndTagId(String userId, String tagId);
 
+    long countByUserId(String userId);
+
     /** 用 userId 查所有關聯的 TagEntity（join junction）。 */
     @Query("SELECT t FROM TagEntity t WHERE t.tagId IN " +
             "(SELECT a.tagId FROM AttendeeTagEntity a WHERE a.userId = :userId)")

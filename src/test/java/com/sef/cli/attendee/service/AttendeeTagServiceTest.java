@@ -5,8 +5,11 @@ import com.sef.cli.attendee.entity.AttendeeTagEntity;
 import com.sef.cli.attendee.repository.AttendeeTagRepository;
 import com.sef.cli.common.exception.TagAlreadyAssociatedException;
 import com.sef.cli.common.exception.TagJunctionNotFoundException;
+import com.sef.cli.common.exception.TagLimitExceededException;
+import com.sef.cli.tag.config.TagProperties;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.tag.repository.TagRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,8 +36,17 @@ class AttendeeTagServiceTest {
     @Mock
     AttendeeTagRepository attendeeTagRepository;
 
+    @Mock
+    TagProperties tagProperties;
+
     @InjectMocks
     AttendeeTagService service;
+
+    @BeforeEach
+    void setupDefaults() {
+        lenient().when(tagProperties.getMaxPerUser()).thenReturn(20);
+        lenient().when(attendeeTagRepository.countByUserId(anyString())).thenReturn(0L);
+    }
 
     @Test
     void addTag_existingTagId_createsJunction() {
@@ -104,5 +118,28 @@ class AttendeeTagServiceTest {
         when(attendeeTagRepository.findByUserIdAndTagId("u-1", "no")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.removeTag("u-1", "no"))
                 .isInstanceOf(TagJunctionNotFoundException.class);
+    }
+
+    @Test
+    void addTag_throwsLimitExceeded_whenAtMax() {
+        when(attendeeTagRepository.countByUserId("u-1")).thenReturn(20L);
+
+        assertThatThrownBy(() -> service.addTag("u-1", new AddTagRequest("t-1", null, null)))
+                .isInstanceOf(TagLimitExceededException.class);
+    }
+
+    @Test
+    void addTag_allowedAt19_thenBlockedAt20() {
+        when(attendeeTagRepository.countByUserId("u-1")).thenReturn(19L);
+        when(attendeeTagRepository.existsByUserIdAndTagId("u-1", "t-1")).thenReturn(false);
+        when(tagRepository.findByTagId("t-1")).thenReturn(Optional.of(
+                TagEntity.builder().tagId("t-1").type("LANGUAGE").content("Java").build()));
+        when(attendeeTagRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.addTag("u-1", new AddTagRequest("t-1", null, null));
+
+        when(attendeeTagRepository.countByUserId("u-1")).thenReturn(20L);
+        assertThatThrownBy(() -> service.addTag("u-1", new AddTagRequest("t-2", null, null)))
+                .isInstanceOf(TagLimitExceededException.class);
     }
 }

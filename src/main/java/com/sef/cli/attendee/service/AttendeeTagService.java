@@ -5,6 +5,8 @@ import com.sef.cli.attendee.entity.AttendeeTagEntity;
 import com.sef.cli.attendee.repository.AttendeeTagRepository;
 import com.sef.cli.common.exception.TagAlreadyAssociatedException;
 import com.sef.cli.common.exception.TagJunctionNotFoundException;
+import com.sef.cli.common.exception.TagLimitExceededException;
+import com.sef.cli.tag.config.TagProperties;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.tag.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,9 +19,13 @@ public class AttendeeTagService {
 
     private final TagRepository tagRepository;
     private final AttendeeTagRepository attendeeTagRepository;
+    private final TagProperties tagProperties;
 
     @Transactional
     public TagEntity addTag(String userId, AddTagRequest req) {
+        if (attendeeTagRepository.countByUserId(userId) >= tagProperties.getMaxPerUser()) {
+            throw new TagLimitExceededException();
+        }
         TagEntity tag;
         if (req.getTagId() != null && !req.getTagId().isBlank()) {
             // junction-first：先檢查重複（race-safe + 少一次 DB read），再驗證 tag 存在
