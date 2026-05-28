@@ -73,4 +73,17 @@ class StyledAccessDeniedHandlerTest {
         assertThat(res.getStatus()).isEqualTo(403);
         assertThat(res.getContentType()).startsWith("application/json");
     }
+
+    @Test
+    void responseAlreadyCommitted_returnsEarlyWithoutWriting() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/x");
+        req.addHeader("Accept", "text/html");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        res.flushBuffer();
+
+        handler.handle(req, res, new AccessDeniedException("denied"));
+
+        // response 已 committed,handler 不該再寫東西
+        assertThat(res.getContentAsString()).isEmpty();
+    }
 }

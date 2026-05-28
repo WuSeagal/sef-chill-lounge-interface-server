@@ -208,6 +208,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void mapsIllegalArgument_browser_returns400StyledHtml() throws Exception {
+        mvc.perform(get("/__test__/illegal-argument")
+                        .accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentTypeCompatibleWith(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("請求格式不正確")));
+    }
+
+    @Test
     void mapsDataIntegrityViolation_to409_constraintViolation() throws Exception {
         mvc.perform(get("/__test__/data-integrity"))
                 .andExpect(status().isConflict())

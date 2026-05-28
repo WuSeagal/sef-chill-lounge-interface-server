@@ -111,8 +111,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Object>> illegalArgument(IllegalArgumentException e) {
-        return respond(HttpStatus.BAD_REQUEST, e.getMessage());
+    public ResponseEntity<?> illegalArgument(IllegalArgumentException e, HttpServletRequest req) {
+        return respondAcceptAware(HttpStatus.BAD_REQUEST, e.getMessage(), req);
     }
 
     @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
