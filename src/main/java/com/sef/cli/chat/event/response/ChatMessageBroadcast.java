@@ -11,6 +11,8 @@ public record ChatMessageBroadcast(
         String userId,
         String furName,
         String avatar,
+        String avatarColor,
+        boolean avatarBorder,
         MessageType messageType,
         String content,
         List<String> imageUrls,

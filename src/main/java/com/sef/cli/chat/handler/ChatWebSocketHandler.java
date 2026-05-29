@@ -145,6 +145,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 saved.getUserId(),
                 attendee == null ? null : attendee.getFurName(),
                 attendee == null ? null : attendee.getAvatar(),
+                attendee == null ? null : attendee.getAvatarColor(),
+                attendee != null && attendee.isAvatarBorder(),
                 saved.getMessageType(),
                 saved.getContent(),
                 saved.getImageUrls() == null ? List.of() : saved.getImageUrls(),

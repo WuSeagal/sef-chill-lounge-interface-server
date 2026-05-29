@@ -5,6 +5,7 @@ import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.repository.AttendeeDataRepository;
 import com.sef.cli.chat.event.ChatEnvelope;
 import com.sef.cli.chat.event.ChatEventType;
+import com.sef.cli.chat.event.response.ChatMessageBroadcast;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.message.entity.MessageEntity;
@@ -156,6 +157,35 @@ class ChatWebSocketHandlerTest {
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
         verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
         assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.CHAT_MESSAGE))).isTrue();
+    }
+
+    @Test
+    void chatMessageBroadcastCarriesAvatarColorAndBorder() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        when(messageService.persistText(eq("u-1"), eq("hello"), any())).thenReturn(
+                MessageEntity.builder()
+                        .id(1L).messageId("msg-001").userId("u-1")
+                        .messageType(MessageType.TEXT).content("hello")
+                        .createdDate(LocalDateTime.now()).build()
+        );
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").avatar("/a.png")
+                        .avatarColor("#7b9b8f").avatarBorder(true).build()
+        ));
+
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"hello\",\"imageUrls\":[]}}"
+        ));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.CHAT_MESSAGE))
+                .findFirst().orElseThrow().data();
+        assertThat(payload.avatarColor()).isEqualTo("#7b9b8f");
+        assertThat(payload.avatarBorder()).isTrue();
     }
 
     @Test
