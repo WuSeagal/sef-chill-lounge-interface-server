@@ -19,6 +19,8 @@ public class MessageResponse {
     private String messageType;
     private String furName;
     private String avatar;
+    private String avatarColor;
+    private boolean avatarBorder;
     private String content;
     private List<String> imageUrls;
     private String stickerImageUrl;

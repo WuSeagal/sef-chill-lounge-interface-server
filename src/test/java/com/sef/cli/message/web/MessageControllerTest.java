@@ -43,6 +43,8 @@ class MessageControllerTest {
                         MessageType.TEXT,
                         "Fox",
                         "/avatar.png",
+                        "#7b9b8f",
+                        true,
                         "hello",
                         List.of(),
                         null,
@@ -57,7 +59,9 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.data[0].cursorId").value(11))
                 .andExpect(jsonPath("$.data[0].messageId").value("msg-001"))
                 .andExpect(jsonPath("$.data[0].messageType").value("TEXT"))
-                .andExpect(jsonPath("$.data[0].furName").value("Fox"));
+                .andExpect(jsonPath("$.data[0].furName").value("Fox"))
+                .andExpect(jsonPath("$.data[0].avatarColor").value("#7b9b8f"))
+                .andExpect(jsonPath("$.data[0].avatarBorder").value(true));
     }
 
     @Test
