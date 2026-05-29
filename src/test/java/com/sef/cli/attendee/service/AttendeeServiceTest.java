@@ -108,6 +108,29 @@ class AttendeeServiceTest {
     }
 
     @Test
+    void createProfile_defaultsAvatarColorWhite_whenOmitted() {
+        when(attendeeDataRepository.existsByUserId("u-color-default")).thenReturn(false);
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, null, null);
+        AttendeeDataEntity created = attendeeService.createProfile("u-color-default", req);
+
+        assertThat(created.getAvatarColor()).isEqualTo("#ffffff");
+        assertThat(created.isAvatarBorder()).isFalse();
+    }
+
+    @Test
+    void createProfile_keepsProvidedAvatarColor() {
+        when(attendeeDataRepository.existsByUserId("u-color-given")).thenReturn(false);
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, "#7b9b8f", null);
+        AttendeeDataEntity created = attendeeService.createProfile("u-color-given", req);
+
+        assertThat(created.getAvatarColor()).isEqualTo("#7b9b8f");
+    }
+
+    @Test
     void updateProfile_updatesOnlyProvidedFields() {
         AttendeeDataEntity existing = AttendeeDataEntity.builder()
                 .userId("u-1").username("old").furName("oldFur")

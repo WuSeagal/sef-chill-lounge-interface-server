@@ -25,6 +25,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AttendeeService {
 
+    public static final String DEFAULT_AVATAR_COLOR = "#ffffff";
+
     private final AttendeeDataRepository attendeeDataRepository;
     private final AttendeeTagRepository attendeeTagRepository;
     private final AttendeeSocialRepository attendeeSocialRepository;
@@ -58,7 +60,8 @@ public class AttendeeService {
                 .username(resolvedUsername)
                 .furName(req.getFurName())
                 .avatar(req.getAvatar())
-                .avatarColor(req.getAvatarColor())
+                .avatarColor(req.getAvatarColor() != null && !req.getAvatarColor().isBlank()
+                        ? req.getAvatarColor() : DEFAULT_AVATAR_COLOR)
                 .topicId(topicId)
                 .build();
         return attendeeDataRepository.save(entity);
