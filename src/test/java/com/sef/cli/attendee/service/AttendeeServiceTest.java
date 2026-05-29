@@ -120,6 +120,17 @@ class AttendeeServiceTest {
     }
 
     @Test
+    void createProfile_defaultsAvatarColorWhite_whenBlank() {
+        when(attendeeDataRepository.existsByUserId("u-color-blank")).thenReturn(false);
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, "   ", null);
+        AttendeeDataEntity created = attendeeService.createProfile("u-color-blank", req);
+
+        assertThat(created.getAvatarColor()).isEqualTo("#ffffff");
+    }
+
+    @Test
     void createProfile_keepsProvidedAvatarColor() {
         when(attendeeDataRepository.existsByUserId("u-color-given")).thenReturn(false);
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
