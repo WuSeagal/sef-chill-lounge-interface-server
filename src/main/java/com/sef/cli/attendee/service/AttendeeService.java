@@ -73,6 +73,7 @@ public class AttendeeService {
         if (req.getFurName() != null) entity.setFurName(req.getFurName());
         if (req.getAvatar() != null) entity.setAvatar(req.getAvatar());
         if (req.getAvatarColor() != null) entity.setAvatarColor(req.getAvatarColor());
+        if (req.getAvatarBorder() != null) entity.setAvatarBorder(req.getAvatarBorder());
         if (req.getTopicId() != null) {
             topicService.findByTopicIdOrThrow(req.getTopicId());
             entity.setTopicId(req.getTopicId());

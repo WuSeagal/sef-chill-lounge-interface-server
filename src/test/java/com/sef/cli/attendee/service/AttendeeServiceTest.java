@@ -138,7 +138,7 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(existing));
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        UpdateProfileRequest req = new UpdateProfileRequest(null, "newFur", null, null, null);
+        UpdateProfileRequest req = new UpdateProfileRequest(null, "newFur", null, null, null, null);
         AttendeeDataEntity updated = attendeeService.updateProfile("u-1", req);
 
         assertThat(updated.getUsername()).isEqualTo("old");
@@ -154,7 +154,7 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(existing));
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        UpdateProfileRequest req = new UpdateProfileRequest("new-username", "newFur", null, null, null);
+        UpdateProfileRequest req = new UpdateProfileRequest("new-username", "newFur", null, null, null, null);
         AttendeeDataEntity updated = attendeeService.updateProfile("u-1", req);
 
         assertThat(updated.getUsername()).isEqualTo("user-u-1");
@@ -162,9 +162,23 @@ class AttendeeServiceTest {
     }
 
     @Test
+    void updateProfile_updatesAvatarBorder() {
+        AttendeeDataEntity existing = AttendeeDataEntity.builder()
+                .userId("u-1").username("u").avatarColor("#7b9b8f").avatarBorder(false).build();
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(existing));
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateProfileRequest req = new UpdateProfileRequest();
+        req.setAvatarBorder(true);
+        AttendeeDataEntity updated = attendeeService.updateProfile("u-1", req);
+
+        assertThat(updated.isAvatarBorder()).isTrue();
+    }
+
+    @Test
     void updateProfile_throws_whenMissing() {
         when(attendeeDataRepository.findByUserId("u-x")).thenReturn(Optional.empty());
-        UpdateProfileRequest req = new UpdateProfileRequest(null, null, null, null, null);
+        UpdateProfileRequest req = new UpdateProfileRequest(null, null, null, null, null, null);
         assertThatThrownBy(() -> attendeeService.updateProfile("u-x", req))
                 .isInstanceOf(ProfileNotFoundException.class);
     }
