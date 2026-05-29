@@ -62,6 +62,30 @@ class AttendeeControllerTest {
     }
 
     @Test
+    @WithMockAdmin(providerUserId = "u-int-border")
+    void getProfile_returnsAvatarBorderField() throws Exception {
+        attendeeDataRepository.save(AttendeeDataEntity.builder()
+                .userId("u-int-border").username("B").furName("BFur")
+                .avatarColor("#7b9b8f").avatarBorder(true).build());
+        mvc.perform(get("/user/profile"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarColor").value("#7b9b8f"))
+                .andExpect(jsonPath("$.data.avatarBorder").value(true));
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-int-detail-border")
+    void getProfileByUserId_returnsAvatarBorderField() throws Exception {
+        attendeeDataRepository.save(AttendeeDataEntity.builder()
+                .userId("u-detail-b").username("D").furName("DFur")
+                .avatarColor("#c9826b").avatarBorder(true).build());
+        mvc.perform(get("/user/profile/u-detail-b"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarColor").value("#c9826b"))
+                .andExpect(jsonPath("$.data.avatarBorder").value(true));
+    }
+
+    @Test
     @WithMockAdmin(providerUserId = "u-int-2")
     void getProfile_returns404_whenMissing() throws Exception {
         mvc.perform(get("/user/profile"))

@@ -15,5 +15,6 @@ public class ProfileResponse {
     private String furName;
     private String avatar;
     private String avatarColor;
+    private boolean avatarBorder;
     private String topicId;
 }

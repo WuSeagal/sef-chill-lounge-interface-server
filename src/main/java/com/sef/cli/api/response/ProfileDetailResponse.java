@@ -17,6 +17,7 @@ public class ProfileDetailResponse {
     private String furName;
     private String avatar;
     private String avatarColor;
+    private boolean avatarBorder;
     private String topicId;
     private TopicResponse topic;
     private List<TagResponse> tags;

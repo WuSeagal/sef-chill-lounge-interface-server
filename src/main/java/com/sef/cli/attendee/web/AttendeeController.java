@@ -81,6 +81,7 @@ public class AttendeeController implements AttendeeApi {
                 .furName(detail.entity().getFurName())
                 .avatar(detail.entity().getAvatar())
                 .avatarColor(detail.entity().getAvatarColor())
+                .avatarBorder(detail.entity().isAvatarBorder())
                 .topicId(detail.entity().getTopicId())
                 .topic(detail.topic() == null ? null : topicDtoMapper.toResponse(detail.topic()))
                 .tags(tags)
