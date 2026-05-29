@@ -48,6 +48,10 @@ public class AttendeeDataEntity {
     @Column(name = "avatar_color")
     private String avatarColor;
 
+    @Column(name = "avatar_border", nullable = false)
+    @lombok.Builder.Default
+    private boolean avatarBorder = false;
+
     @Column(name = "topic_id")
     private String topicId;
 

@@ -53,6 +53,7 @@ CREATE TABLE ATTENDEE_DATA (
     fur_name            VARCHAR(256),
     avatar              VARCHAR(512),
     avatar_color        VARCHAR(16),
+    avatar_border       BOOLEAN NOT NULL DEFAULT FALSE,
     topic_id            VARCHAR(64),
     created_date        TIMESTAMP,
     last_modified_date  TIMESTAMP,
