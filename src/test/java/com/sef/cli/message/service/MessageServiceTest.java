@@ -69,12 +69,6 @@ class MessageServiceTest {
     }
 
     @Test
-    void persistStickerRejectsBlankUrl() {
-        assertThatThrownBy(() -> messageService.persistSticker("u-1", "  "))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("sticker_image_url_required");
-    }
-
-    @Test
     void persistStickerRejectsBlankStickerImageUrl() {
         assertThatThrownBy(() -> messageService.persistSticker("u-1", " "))
                 .isInstanceOf(IllegalArgumentException.class)
