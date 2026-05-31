@@ -12,7 +12,11 @@ import java.util.Optional;
 @Transactional
 public interface AttendeeStickerRepository extends JpaRepository<AttendeeStickerEntity, Long> {
 
-    List<AttendeeStickerEntity> findByUserIdOrderByStickerNo(String userId);
+    List<AttendeeStickerEntity> findByUserIdOrderByCreatedDateAsc(String userId);
 
-    Optional<AttendeeStickerEntity> findByUserIdAndStickerNo(String userId, Integer stickerNo);
+    List<AttendeeStickerEntity> findByUserId(String userId);
+
+    long countByUserId(String userId);
+
+    Optional<AttendeeStickerEntity> findByIdAndUserId(Long id, String userId);
 }

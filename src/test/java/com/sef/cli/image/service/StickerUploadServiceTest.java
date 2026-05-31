@@ -13,12 +13,15 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,88 +52,140 @@ class StickerUploadServiceTest {
     }
 
     @Test
-    void uploadStoresStickerInPerUserSlotFileAndUpserts() throws Exception {
-        when(repository.findByUserIdAndStickerNo("u-1", 1)).thenReturn(Optional.empty());
+    void uploadStoresFileAndAddsRow() throws Exception {
+        when(repository.countByUserId("u-1")).thenReturn(0L);
         when(repository.save(any(AttendeeStickerEntity.class)))
-                .thenAnswer(inv -> { AttendeeStickerEntity e = inv.getArgument(0); e.setId(99L); return e; });
+                .thenAnswer(inv -> {
+                    AttendeeStickerEntity e = inv.getArgument(0);
+                    e.setId(99L);
+                    return e;
+                });
+        when(repository.findByUserId("u-1")).thenReturn(List.of());
         MockMultipartFile file = new MockMultipartFile("file", "s.png", "image/png", VALID_PNG_BYTES);
 
-        StickerResponse response = service.upload(file, "u-1", 1);
+        StickerResponse response = service.upload(file, "u-1");
 
-        assertThat(response.getStickerNo()).isEqualTo(1);
-        assertThat(response.getSticker()).startsWith("/sticker/u-1/1.png?v=");
-        assertThat(Files.exists(tempDir.resolve("sticker/u-1/1.png"))).isTrue();
+        assertThat(response.getId()).isEqualTo(99L);
+        assertThat(response.getSticker()).startsWith("/sticker/u-1/u-1-");
+        assertThat(response.getSticker()).endsWith(".png");
+
+        try (var stream = Files.list(tempDir.resolve("sticker/u-1"))) {
+            assertThat(stream.count()).isEqualTo(1L);
+        }
     }
 
     @Test
     void uploadAcceptsGif() throws Exception {
-        when(repository.findByUserIdAndStickerNo("u-1", 2)).thenReturn(Optional.empty());
-        when(repository.save(any(AttendeeStickerEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.countByUserId("u-1")).thenReturn(0L);
+        when(repository.save(any(AttendeeStickerEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(repository.findByUserId("u-1")).thenReturn(List.of());
         MockMultipartFile file = new MockMultipartFile("file", "s.gif", "image/gif", VALID_GIF_BYTES);
 
-        StickerResponse response = service.upload(file, "u-1", 2);
+        StickerResponse response = service.upload(file, "u-1");
 
-        assertThat(response.getSticker()).startsWith("/sticker/u-1/2.gif?v=");
+        assertThat(response.getSticker()).endsWith(".gif");
     }
 
     @Test
-    void uploadUpdatesExistingRowAndDeletesOldExtensionFile() throws Exception {
-        Files.createDirectories(tempDir.resolve("sticker/u-1"));
-        Files.write(tempDir.resolve("sticker/u-1/1.gif"), VALID_GIF_BYTES);
-        when(repository.findByUserIdAndStickerNo("u-1", 1)).thenReturn(Optional.of(
-                AttendeeStickerEntity.builder().id(5L).userId("u-1").stickerNo(1).sticker("/sticker/u-1/1.gif?v=1").build()));
-        when(repository.save(any(AttendeeStickerEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+    void uploadRejectsWhenLimitReached() throws Exception {
+        when(repository.countByUserId("u-1")).thenReturn(5L);
         MockMultipartFile file = new MockMultipartFile("file", "s.png", "image/png", VALID_PNG_BYTES);
 
-        StickerResponse response = service.upload(file, "u-1", 1);
+        assertThatThrownBy(() -> service.upload(file, "u-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("sticker_limit_reached");
 
-        assertThat(Files.exists(tempDir.resolve("sticker/u-1/1.gif"))).isFalse();
-        assertThat(Files.exists(tempDir.resolve("sticker/u-1/1.png"))).isTrue();
-        assertThat(response.getId()).isEqualTo(5L);
-    }
-
-    @Test
-    void uploadRejectsSlotOutOfRange() {
-        MockMultipartFile file = new MockMultipartFile("file", "s.png", "image/png", VALID_PNG_BYTES);
-        assertThatThrownBy(() -> service.upload(file, "u-1", 0))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("sticker_slot_out_of_range");
-        assertThatThrownBy(() -> service.upload(file, "u-1", 6))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("sticker_slot_out_of_range");
+        verify(repository, never()).save(any());
+        try (var stream = Files.list(tempDir.resolve("sticker"))) {
+            assertThat(stream.count()).isEqualTo(0L);
+        }
     }
 
     @Test
     void uploadRejectsUnsupportedMediaType() {
+        when(repository.countByUserId("u-1")).thenReturn(0L);
         MockMultipartFile file = new MockMultipartFile("file", "s.svg", "image/svg+xml", "<svg/>".getBytes());
-        assertThatThrownBy(() -> service.upload(file, "u-1", 1))
-                .isInstanceOf(UnsupportedMediaTypeException.class).hasMessage("unsupported_image_type");
+
+        assertThatThrownBy(() -> service.upload(file, "u-1"))
+                .isInstanceOf(UnsupportedMediaTypeException.class)
+                .hasMessage("unsupported_image_type");
     }
 
     @Test
     void uploadRejectsFileTooLarge() {
+        when(repository.countByUserId("u-1")).thenReturn(0L);
         byte[] oversized = new byte[11 * 1024 * 1024];
         System.arraycopy(VALID_PNG_BYTES, 0, oversized, 0, VALID_PNG_BYTES.length);
         MockMultipartFile file = new MockMultipartFile("file", "big.png", "image/png", oversized);
-        assertThatThrownBy(() -> service.upload(file, "u-1", 1))
-                .isInstanceOf(PayloadTooLargeException.class).hasMessage("file_too_large");
+
+        assertThatThrownBy(() -> service.upload(file, "u-1"))
+                .isInstanceOf(PayloadTooLargeException.class)
+                .hasMessage("file_too_large");
     }
 
     @Test
-    void deleteRemovesSlotFilesAndRow() throws Exception {
+    void deleteByIdRemovesRowButKeepsFile() throws Exception {
         Files.createDirectories(tempDir.resolve("sticker/u-1"));
-        Files.write(tempDir.resolve("sticker/u-1/3.png"), VALID_PNG_BYTES);
-        AttendeeStickerEntity existing = AttendeeStickerEntity.builder()
-                .id(7L).userId("u-1").stickerNo(3).sticker("/sticker/u-1/3.png?v=1").build();
-        when(repository.findByUserIdAndStickerNo("u-1", 3)).thenReturn(Optional.of(existing));
+        Path existingFile = tempDir.resolve("sticker/u-1/u-1-250101000001-aaa.png");
+        Files.write(existingFile, VALID_PNG_BYTES);
 
-        service.delete("u-1", 3);
+        AttendeeStickerEntity row = AttendeeStickerEntity.builder()
+                .id(7L).userId("u-1").sticker("/sticker/u-1/u-1-250101000001-aaa.png").build();
+        when(repository.findByIdAndUserId(7L, "u-1")).thenReturn(Optional.of(row));
 
-        assertThat(Files.exists(tempDir.resolve("sticker/u-1/3.png"))).isFalse();
-        verify(repository).delete(existing);
+        service.delete(7L, "u-1");
+
+        verify(repository).delete(row);
+        assertThat(Files.exists(existingFile)).isTrue();
     }
 
     @Test
-    void deleteRejectsSlotOutOfRange() {
-        assertThatThrownBy(() -> service.delete("u-1", 9))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("sticker_slot_out_of_range");
+    void deleteRejectsUnknownId() {
+        when(repository.findByIdAndUserId(9L, "u-1")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.delete(9L, "u-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("sticker_not_found");
+    }
+
+    @Test
+    void uploadEvictsOldestNonActiveProtectingActive() throws Exception {
+        // Create 15 pre-existing files; lexical == chronological (250101000001 oldest, 250101000015 newest)
+        Path userDir = tempDir.resolve("sticker/u-1");
+        Files.createDirectories(userDir);
+        for (int i = 1; i <= 15; i++) {
+            String ts = String.format("2501010000%02d", i);
+            Files.write(userDir.resolve("u-1-" + ts + "-aaa.png"), VALID_PNG_BYTES);
+        }
+
+        // Mock: count is 0 (upload is allowed), save returns entity with id 50
+        when(repository.countByUserId("u-1")).thenReturn(0L);
+        when(repository.save(any(AttendeeStickerEntity.class)))
+                .thenAnswer(inv -> {
+                    AttendeeStickerEntity e = inv.getArgument(0);
+                    e.setId(50L);
+                    return e;
+                });
+
+        // File 01 is "active" (protected) — referenced by a DB row
+        when(repository.findByUserId("u-1")).thenReturn(List.of(
+                AttendeeStickerEntity.builder()
+                        .id(1L).userId("u-1")
+                        .sticker("/sticker/u-1/u-1-250101000001-aaa.png")
+                        .build()
+        ));
+
+        // Upload new file → writes 16th file (ts is 2026xx, sorts newest)
+        MockMultipartFile file = new MockMultipartFile("file", "s.png", "image/png", VALID_PNG_BYTES);
+        service.upload(file, "u-1");
+
+        // After upload: excess=1, file-01 protected, file-02 deleted, new file kept
+        assertThat(Files.exists(userDir.resolve("u-1-250101000001-aaa.png"))).isTrue();
+        assertThat(Files.exists(userDir.resolve("u-1-250101000002-aaa.png"))).isFalse();
+
+        try (var stream = Files.list(userDir)) {
+            assertThat(stream.collect(Collectors.toList())).hasSize(15);
+        }
     }
 }

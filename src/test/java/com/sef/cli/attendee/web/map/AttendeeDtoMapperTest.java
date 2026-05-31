@@ -91,14 +91,12 @@ class AttendeeDtoMapperTest {
         AttendeeStickerEntity e = AttendeeStickerEntity.builder()
                 .id(3L)
                 .userId("u-1")
-                .stickerNo(1)
                 .sticker("/uploads/sticker/a.png")
                 .build();
 
         StickerResponse r = mapper.toStickerResponse(e);
 
         assertThat(r.getId()).isEqualTo(3L);
-        assertThat(r.getStickerNo()).isEqualTo(1);
         assertThat(r.getSticker()).isEqualTo("/uploads/sticker/a.png");
     }
 }

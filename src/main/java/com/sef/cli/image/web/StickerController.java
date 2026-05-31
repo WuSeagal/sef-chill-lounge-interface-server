@@ -25,17 +25,16 @@ public class StickerController {
 
     private final StickerUploadService stickerUploadService;
 
-    @PostMapping("/{slot}")
+    @PostMapping
     public ResponseEntity<ApiResponse<StickerResponse>> uploadSticker(
-            @PathVariable int slot,
             @RequestParam("file") MultipartFile file) {
-        StickerResponse response = stickerUploadService.upload(file, currentUserId(), slot);
+        StickerResponse response = stickerUploadService.upload(file, currentUserId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
-    @DeleteMapping("/{slot}")
-    public ResponseEntity<ApiResponse<Void>> deleteSticker(@PathVariable int slot) {
-        stickerUploadService.delete(currentUserId(), slot);
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteSticker(@PathVariable Long id) {
+        stickerUploadService.delete(id, currentUserId());
         return ResponseEntity.ok(ApiResponse.<Void>success(null));
     }
 

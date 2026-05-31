@@ -121,11 +121,11 @@ VALUES
 -- ============================================================
 -- ATTENDEE_STICKER (個人貼圖)
 -- ============================================================
-INSERT INTO ATTENDEE_STICKER (user_id, sticker_no, sticker, created_date, last_modified_date)
+INSERT INTO ATTENDEE_STICKER (user_id, sticker, created_date, last_modified_date)
 VALUES
-('111427449810799428954', 1, '/sticker/seagal-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('111427449810799428954', 2, '/sticker/seagal-2.png', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('demo-user-002', 1, '/sticker/wolfie-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+('111427449810799428954', '/sticker/seagal-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', '/sticker/seagal-2.png', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('demo-user-002', '/sticker/wolfie-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ;
 
 -- ============================================================

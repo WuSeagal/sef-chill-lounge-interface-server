@@ -11,6 +11,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class StickerResponse {
     private Long id;
-    private Integer stickerNo;
     private String sticker;
 }

@@ -7,7 +7,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,7 +19,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
-@Table(name = "ATTENDEE_STICKER", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "sticker_no"}))
+@Table(name = "ATTENDEE_STICKER")
 @Getter
 @Setter
 @SuperBuilder
@@ -36,9 +35,6 @@ public class AttendeeStickerEntity {
 
     @Column(name = "user_id", nullable = false)
     private String userId;
-
-    @Column(name = "sticker_no", nullable = false)
-    private Integer stickerNo;
 
     @Column(name = "sticker")
     private String sticker;

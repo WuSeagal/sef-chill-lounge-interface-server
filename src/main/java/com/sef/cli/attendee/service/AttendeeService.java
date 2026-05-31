@@ -107,7 +107,7 @@ public class AttendeeService {
         AttendeeDataEntity entity = getProfileOrThrow(userId);
         List<TagEntity> tags = attendeeTagRepository.findTagsByUserId(userId);
         List<AttendeeSocialEntity> socials = attendeeSocialRepository.findByUserId(userId);
-        List<AttendeeStickerEntity> stickers = attendeeStickerRepository.findByUserIdOrderByStickerNo(userId);
+        List<AttendeeStickerEntity> stickers = attendeeStickerRepository.findByUserIdOrderByCreatedDateAsc(userId);
         TopicEntity topic = (entity.getTopicId() == null) ? null
                 : topicService.findByTopicIdOrThrow(entity.getTopicId());
         return new ProfileDetail(entity, tags, socials, stickers, topic);
