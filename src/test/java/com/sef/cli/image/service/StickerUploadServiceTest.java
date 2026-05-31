@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class StickerUploadServiceTest {
@@ -111,5 +112,25 @@ class StickerUploadServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "big.png", "image/png", oversized);
         assertThatThrownBy(() -> service.upload(file, "u-1", 1))
                 .isInstanceOf(PayloadTooLargeException.class).hasMessage("file_too_large");
+    }
+
+    @Test
+    void deleteRemovesSlotFilesAndRow() throws Exception {
+        Files.createDirectories(tempDir.resolve("sticker/u-1"));
+        Files.write(tempDir.resolve("sticker/u-1/3.png"), VALID_PNG_BYTES);
+        AttendeeStickerEntity existing = AttendeeStickerEntity.builder()
+                .id(7L).userId("u-1").stickerNo(3).sticker("/sticker/u-1/3.png?v=1").build();
+        when(repository.findByUserIdAndStickerNo("u-1", 3)).thenReturn(Optional.of(existing));
+
+        service.delete("u-1", 3);
+
+        assertThat(Files.exists(tempDir.resolve("sticker/u-1/3.png"))).isFalse();
+        verify(repository).delete(existing);
+    }
+
+    @Test
+    void deleteRejectsSlotOutOfRange() {
+        assertThatThrownBy(() -> service.delete("u-1", 9))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("sticker_slot_out_of_range");
     }
 }

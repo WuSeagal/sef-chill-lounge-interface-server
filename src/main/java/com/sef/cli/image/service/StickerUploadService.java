@@ -86,6 +86,16 @@ public class StickerUploadService {
                 .build();
     }
 
+    public void delete(String userId, int slot) {
+        if (slot < MIN_SLOT || slot > MAX_SLOT) {
+            throw new IllegalArgumentException("sticker_slot_out_of_range");
+        }
+        Path userDir = Paths.get(properties.getBasePath(), "sticker", userId);
+        deleteExistingSlotFiles(userDir, slot);
+        stickerRepository.findByUserIdAndStickerNo(userId, slot)
+                .ifPresent(stickerRepository::delete);
+    }
+
     private void deleteExistingSlotFiles(Path userDir, int slot) {
         for (ImageFormat format : ImageFormat.values()) {
             Path existing = userDir.resolve(slot + "." + format.normalizedExtension());
