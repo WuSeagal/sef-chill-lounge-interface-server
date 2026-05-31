@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 @Component
 @RequiredArgsConstructor
@@ -117,27 +118,40 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        if (messageType != MessageType.TEXT) {
-            sendError(session, "unsupported_message_type", "only TEXT is supported in this slice");
+        if (messageType == MessageType.TEXT) {
+            String content = data.path("content").isMissingNode() || data.path("content").isNull()
+                    ? null : data.path("content").asText("");
+            List<String> imageUrls = new ArrayList<>();
+            if (data.path("imageUrls").isArray()) {
+                data.path("imageUrls").forEach(node -> imageUrls.add(node.asText()));
+            }
+            persistAndBroadcast(session, userId, () -> messageService.persistText(userId, content, imageUrls));
             return;
         }
 
-        String content = data.path("content").isMissingNode() || data.path("content").isNull()
-                ? null
-                : data.path("content").asText("");
-        List<String> imageUrls = new ArrayList<>();
-        if (data.path("imageUrls").isArray()) {
-            data.path("imageUrls").forEach(node -> imageUrls.add(node.asText()));
+        if (messageType == MessageType.STICKER) {
+            String stickerImageUrl = data.path("stickerImageUrl").isMissingNode() || data.path("stickerImageUrl").isNull()
+                    ? null : data.path("stickerImageUrl").asText("");
+            if (stickerImageUrl == null || !stickerImageUrl.startsWith("/sticker/")) {
+                sendError(session, "sticker_image_url_invalid_prefix", "sticker url must start with /sticker/");
+                return;
+            }
+            persistAndBroadcast(session, userId, () -> messageService.persistSticker(userId, stickerImageUrl));
+            return;
         }
 
+        sendError(session, "unsupported_message_type", "unsupported messageType: " + messageType);
+    }
+
+    private void persistAndBroadcast(WebSocketSession session, String userId,
+                                     Supplier<MessageEntity> persist) {
         MessageEntity saved;
         try {
-            saved = messageService.persistText(userId, content, imageUrls);
+            saved = persist.get();
         } catch (IllegalArgumentException ex) {
             sendError(session, ex.getMessage(), ex.getMessage());
             return;
         }
-
         AttendeeDataEntity attendee = attendeeDataRepository.findByUserId(userId).orElse(null);
         ChatMessageBroadcast payload = new ChatMessageBroadcast(
                 saved.getId(),
@@ -151,8 +165,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 saved.getContent(),
                 saved.getImageUrls() == null ? List.of() : saved.getImageUrls(),
                 saved.getStickerImageUrl(),
-                saved.getCreatedDate()
-        );
+                saved.getCreatedDate());
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, System.currentTimeMillis(), payload));
     }
 

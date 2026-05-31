@@ -207,18 +207,41 @@ class ChatWebSocketHandlerTest {
     }
 
     @Test
-    void rejectsStickerMessageInMvpSlice() throws Exception {
+    void handleStickerMessagePersistsAndBroadcasts() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"))).thenReturn(
+                MessageEntity.builder()
+                        .id(2L).messageId("msg-002").userId("u-1")
+                        .messageType(MessageType.STICKER).stickerImageUrl("/sticker/u-1/1.png?v=1")
+                        .createdDate(LocalDateTime.now()).build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"STICKER\",\"stickerImageUrl\":\"/sticker/u-1/1.png?v=1\"}}"));
+
+        verify(messageService).persistSticker("u-1", "/sticker/u-1/1.png?v=1");
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.CHAT_MESSAGE)).findFirst().orElseThrow().data();
+        assertThat(payload.stickerImageUrl()).isEqualTo("/sticker/u-1/1.png?v=1");
+    }
+
+    @Test
+    void handleStickerMessageRejectsInvalidPrefix() throws Exception {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
 
         handler.handleTextMessage(session, new TextMessage(
-                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"STICKER\",\"content\":null,\"imageUrls\":[]}}"
-        ));
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"STICKER\",\"stickerImageUrl\":\"/evil/x.png\"}}"));
 
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
         verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
         assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.ERROR))).isTrue();
-        verify(messageService, never()).persistText(any(), any(), any());
+        verify(messageService, never()).persistSticker(any(), any());
     }
 
     @Test
