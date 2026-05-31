@@ -59,6 +59,22 @@ class MessageServiceTest {
     }
 
     @Test
+    void persistStickerStoresStickerMessage() {
+        when(messageRepository.save(any(MessageEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        MessageEntity saved = messageService.persistSticker("u-1", "/sticker/u-1/1.png?v=1");
+
+        assertThat(saved.getMessageType()).isEqualTo(MessageType.STICKER);
+        assertThat(saved.getStickerImageUrl()).isEqualTo("/sticker/u-1/1.png?v=1");
+    }
+
+    @Test
+    void persistStickerRejectsBlankUrl() {
+        assertThatThrownBy(() -> messageService.persistSticker("u-1", "  "))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("sticker_image_url_required");
+    }
+
+    @Test
     void persistStickerRejectsBlankStickerImageUrl() {
         assertThatThrownBy(() -> messageService.persistSticker("u-1", " "))
                 .isInstanceOf(IllegalArgumentException.class)
