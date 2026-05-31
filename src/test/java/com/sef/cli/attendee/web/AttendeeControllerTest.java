@@ -121,6 +121,15 @@ class AttendeeControllerTest {
     }
 
     @Test
+    @WithMockAdmin(providerUserId = "u-int-4b")
+    void postProfile_persistsAvatarBorderWhenProvided() throws Exception {
+        mvc.perform(post("/user/profile").contentType(APPLICATION_JSON)
+                        .content("{\"furName\":\"a\",\"avatarBorder\":true}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.avatarBorder").value(true));
+    }
+
+    @Test
     @WithMockAdmin(providerUserId = "u-int-5")
     void postProfile_returns400_whenTopicIdInvalid() throws Exception {
         mvc.perform(post("/user/profile").contentType(APPLICATION_JSON)

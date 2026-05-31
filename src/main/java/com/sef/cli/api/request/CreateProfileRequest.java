@@ -12,5 +12,6 @@ public class CreateProfileRequest {
     private String furName;
     private String avatar;
     private String avatarColor;
+    private Boolean avatarBorder;
     private String topicId;
 }

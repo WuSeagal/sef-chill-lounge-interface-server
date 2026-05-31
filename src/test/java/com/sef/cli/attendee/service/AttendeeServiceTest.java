@@ -69,7 +69,7 @@ class AttendeeServiceTest {
         TopicEntity topic = TopicEntity.builder().topicId("t-3").content("c").build();
         when(topicService.findByTopicIdOrThrow("t-3")).thenReturn(topic);
 
-        CreateProfileRequest req = new CreateProfileRequest("小毛", "MaoMao", null, "#FF0", "t-3");
+        CreateProfileRequest req = new CreateProfileRequest("小毛", "MaoMao", null, "#FF0", null, "t-3");
         AttendeeDataEntity saved = attendeeService.createProfile("u-1", req);
 
         assertThat(saved.getUsername()).isEqualTo("user-u-1");
@@ -81,7 +81,7 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.existsByUserId("u-2")).thenReturn(false);
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateProfileRequest req = new CreateProfileRequest(null, "FurOnly", null, null, null);
+        CreateProfileRequest req = new CreateProfileRequest(null, "FurOnly", null, null, null, null);
         AttendeeDataEntity saved = attendeeService.createProfile("u-2", req);
 
         assertThat(saved.getUsername()).isEqualTo("user-u-2");
@@ -92,7 +92,7 @@ class AttendeeServiceTest {
     void createProfile_throws409_whenExists() {
         when(attendeeDataRepository.existsByUserId("u-1")).thenReturn(true);
 
-        CreateProfileRequest req = new CreateProfileRequest(null, null, null, null, null);
+        CreateProfileRequest req = new CreateProfileRequest(null, null, null, null, null, null);
         assertThatThrownBy(() -> attendeeService.createProfile("u-1", req))
                 .isInstanceOf(ProfileAlreadyExistsException.class);
     }
@@ -102,7 +102,7 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.existsByUserId("u-3")).thenReturn(false);
         when(topicService.findByTopicIdOrThrow("bad")).thenThrow(new InvalidTopicIdException());
 
-        CreateProfileRequest req = new CreateProfileRequest("x", "y", null, null, "bad");
+        CreateProfileRequest req = new CreateProfileRequest("x", "y", null, null, null, "bad");
         assertThatThrownBy(() -> attendeeService.createProfile("u-3", req))
                 .isInstanceOf(InvalidTopicIdException.class);
     }
@@ -112,7 +112,7 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.existsByUserId("u-color-default")).thenReturn(false);
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, null, null);
+        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, null, null, null);
         AttendeeDataEntity created = attendeeService.createProfile("u-color-default", req);
 
         assertThat(created.getAvatarColor()).isEqualTo("#ffffff");
@@ -124,7 +124,7 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.existsByUserId("u-color-blank")).thenReturn(false);
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, "   ", null);
+        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, "   ", null, null);
         AttendeeDataEntity created = attendeeService.createProfile("u-color-blank", req);
 
         assertThat(created.getAvatarColor()).isEqualTo("#ffffff");
@@ -135,10 +135,23 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.existsByUserId("u-color-given")).thenReturn(false);
         when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, "#7b9b8f", null);
+        CreateProfileRequest req = new CreateProfileRequest(null, "Foo", null, "#7b9b8f", null, null);
         AttendeeDataEntity created = attendeeService.createProfile("u-color-given", req);
 
         assertThat(created.getAvatarColor()).isEqualTo("#7b9b8f");
+    }
+
+    @Test
+    void createProfile_keepsProvidedAvatarBorder() {
+        when(attendeeDataRepository.existsByUserId("u-border-given")).thenReturn(false);
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateProfileRequest req = new CreateProfileRequest();
+        req.setFurName("Foo");
+        req.setAvatarBorder(true);
+        AttendeeDataEntity created = attendeeService.createProfile("u-border-given", req);
+
+        assertThat(created.isAvatarBorder()).isTrue();
     }
 
     @Test

@@ -62,6 +62,7 @@ public class AttendeeService {
                 .avatar(req.getAvatar())
                 .avatarColor(req.getAvatarColor() != null && !req.getAvatarColor().isBlank()
                         ? req.getAvatarColor() : DEFAULT_AVATAR_COLOR)
+                .avatarBorder(req.getAvatarBorder() != null ? req.getAvatarBorder() : false)
                 .topicId(topicId)
                 .build();
         return attendeeDataRepository.save(entity);
