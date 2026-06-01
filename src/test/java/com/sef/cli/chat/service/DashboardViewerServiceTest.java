@@ -20,7 +20,7 @@ class DashboardViewerServiceTest {
     void registerAddsSession() {
         WebSocketSession s = mock(WebSocketSession.class);
         service.register(s);
-        assertThat(service.getSessions()).containsExactly(s);
+        assertThat(service.getAllSessions()).containsExactlyInAnyOrder(s);
     }
 
     @Test
@@ -29,7 +29,7 @@ class DashboardViewerServiceTest {
         WebSocketSession s2 = mock(WebSocketSession.class);
         service.register(s1);
         service.register(s2);
-        assertThat(service.getSessions()).containsExactlyInAnyOrder(s1, s2);
+        assertThat(service.getAllSessions()).containsExactlyInAnyOrder(s1, s2);
     }
 
     @Test
@@ -37,6 +37,6 @@ class DashboardViewerServiceTest {
         WebSocketSession s = mock(WebSocketSession.class);
         service.register(s);
         service.unregister(s);
-        assertThat(service.getSessions()).isEmpty();
+        assertThat(service.getAllSessions()).isEmpty();
     }
 }

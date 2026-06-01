@@ -22,11 +22,12 @@ public class DashboardViewerService {
         viewers.add(session);
     }
 
+    /** Removes the session from the viewer set; no-op if the session was never registered. */
     public void unregister(WebSocketSession session) {
         viewers.remove(session);
     }
 
-    public Collection<WebSocketSession> getSessions() {
+    public Collection<WebSocketSession> getAllSessions() {
         return Collections.unmodifiableCollection(viewers);
     }
 }
