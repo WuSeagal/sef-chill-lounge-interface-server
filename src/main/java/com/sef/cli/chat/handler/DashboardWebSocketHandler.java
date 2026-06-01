@@ -48,8 +48,17 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
             session.close();
             return;
         }
+        // Register before replay so live messages arriving mid-replay are also delivered
+        // (frontend dedups by messageId). On replay failure, undo the registration so a
+        // dead viewer is not left behind.
         viewerService.register(session);
-        replayRecentHistory(session);
+        try {
+            replayRecentHistory(session);
+        } catch (RuntimeException ex) {
+            viewerService.unregister(session);
+            log.warn("dashboard replay failed, unregistering viewer sessionId={} reason={}", session.getId(), ex.getMessage());
+            session.close();
+        }
     }
 
     @Override

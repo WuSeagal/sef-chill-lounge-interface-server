@@ -134,4 +134,16 @@ class DashboardWebSocketHandlerTest {
 
         verify(viewerService).unregister(session);
     }
+
+    @Test
+    void unregistersViewerAndClosesWhenReplayFails() throws Exception {
+        WebSocketSession session = authedSession();
+        when(messageService.loadHistory(null, null, 30)).thenThrow(new RuntimeException("db down"));
+
+        handler.afterConnectionEstablished(session);
+
+        verify(viewerService).register(session);
+        verify(viewerService).unregister(session);
+        verify(session).close();
+    }
 }
