@@ -16,6 +16,7 @@ import java.io.IOException;
 public class ChatBroadcastService {
 
     private final OnlineUserService onlineUserService;
+    private final DashboardViewerService dashboardViewerService;
     private final ObjectMapper objectMapper;
 
     public void sendTo(WebSocketSession session, ChatEnvelope<?> envelope) {
@@ -33,6 +34,9 @@ public class ChatBroadcastService {
 
     public void broadcastToAll(ChatEnvelope<?> envelope) {
         for (WebSocketSession session : onlineUserService.getAllSessions()) {
+            sendTo(session, envelope);
+        }
+        for (WebSocketSession session : dashboardViewerService.getAllSessions()) {
             sendTo(session, envelope);
         }
     }

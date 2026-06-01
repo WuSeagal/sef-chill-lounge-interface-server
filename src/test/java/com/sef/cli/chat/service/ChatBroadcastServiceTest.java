@@ -22,13 +22,15 @@ import static org.mockito.Mockito.when;
 class ChatBroadcastServiceTest {
 
     private OnlineUserService onlineUserService;
+    private DashboardViewerService dashboardViewerService;
     private ChatBroadcastService broadcastService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
         onlineUserService = mock(OnlineUserService.class);
-        broadcastService = new ChatBroadcastService(onlineUserService, objectMapper);
+        dashboardViewerService = mock(DashboardViewerService.class);
+        broadcastService = new ChatBroadcastService(onlineUserService, dashboardViewerService, objectMapper);
     }
 
     @Test
@@ -81,5 +83,20 @@ class ChatBroadcastServiceTest {
         broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PONG, 1L, null));
 
         verify(session, never()).sendMessage(any());
+    }
+
+    @Test
+    void broadcastToAllAlsoSendsToDashboardViewers() throws IOException {
+        WebSocketSession chat = mock(WebSocketSession.class);
+        WebSocketSession viewer = mock(WebSocketSession.class);
+        when(chat.isOpen()).thenReturn(true);
+        when(viewer.isOpen()).thenReturn(true);
+        when(onlineUserService.getAllSessions()).thenReturn(List.of(chat));
+        when(dashboardViewerService.getAllSessions()).thenReturn(List.of(viewer));
+
+        broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, 1L, null));
+
+        verify(chat).sendMessage(any(TextMessage.class));
+        verify(viewer).sendMessage(any(TextMessage.class));
     }
 }
