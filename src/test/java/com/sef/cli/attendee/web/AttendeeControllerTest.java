@@ -180,6 +180,8 @@ class AttendeeControllerTest {
             assertThat(payload.userId()).isEqualTo("u-int-7b");
             assertThat(payload.furName()).isEqualTo("NewFur");
             assertThat(payload.avatar()).isEqualTo("/new-avatar.png");
+            assertThat(payload.avatarColor()).isEqualTo("#FF0000");
+            assertThat(payload.avatarBorder()).isFalse();
         });
     }
 

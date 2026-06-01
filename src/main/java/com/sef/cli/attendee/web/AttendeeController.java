@@ -58,7 +58,7 @@ public class AttendeeController implements AttendeeApi {
         chatBroadcastService.broadcastToAll(new ChatEnvelope<>(
                 ChatEventType.PROFILE_UPDATED,
                 System.currentTimeMillis(),
-                new ProfileUpdatedPayload(e.getUserId(), e.getFurName(), e.getAvatar())
+                new ProfileUpdatedPayload(e.getUserId(), e.getFurName(), e.getAvatar(), e.getAvatarColor(), e.isAvatarBorder())
         ));
         return ResponseEntity.ok(ApiResponse.success(attendeeDtoMapper.toProfileResponse(e)));
     }
