@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sef.cli.chat.event.ChatEnvelope;
 import com.sef.cli.chat.event.ChatEventType;
 import com.sef.cli.chat.event.response.ChatMessageBroadcast;
+import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.DashboardViewerService;
+import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.message.service.MessageService;
 import com.sef.cli.message.service.dto.MessageHistoryData;
 import com.sef.cli.user.entity.AdminUserEntity;
@@ -21,6 +23,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -41,6 +44,7 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
     private final ChatBroadcastService broadcastService;
     private final MessageService messageService;
     private final ObjectMapper objectMapper;
+    private final OnlineUserService onlineUserService;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -54,6 +58,7 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
         viewerService.register(session);
         try {
             replayRecentHistory(session);
+            sendPresenceSnapshot(session);
         } catch (RuntimeException ex) {
             viewerService.unregister(session);
             log.warn("dashboard replay failed, unregistering viewer sessionId={} reason={}", session.getId(), ex.getMessage());
@@ -78,6 +83,11 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         viewerService.unregister(session);
+    }
+
+    private void sendPresenceSnapshot(WebSocketSession session) {
+        PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
+        broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
     }
 
     private void replayRecentHistory(WebSocketSession session) {

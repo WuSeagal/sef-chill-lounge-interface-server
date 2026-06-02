@@ -3,8 +3,10 @@ package com.sef.cli.chat.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sef.cli.chat.event.ChatEnvelope;
 import com.sef.cli.chat.event.ChatEventType;
+import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.DashboardViewerService;
+import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
 import com.sef.cli.message.service.dto.MessageHistoryData;
@@ -38,6 +40,7 @@ class DashboardWebSocketHandlerTest {
     private ChatBroadcastService broadcastService;
     private MessageService messageService;
     private ObjectMapper objectMapper;
+    private OnlineUserService onlineUserService;
     private DashboardWebSocketHandler handler;
 
     @BeforeEach
@@ -46,7 +49,8 @@ class DashboardWebSocketHandlerTest {
         broadcastService = mock(ChatBroadcastService.class);
         messageService = mock(MessageService.class);
         objectMapper = new ObjectMapper();
-        handler = new DashboardWebSocketHandler(viewerService, broadcastService, messageService, objectMapper);
+        onlineUserService = new OnlineUserService();
+        handler = new DashboardWebSocketHandler(viewerService, broadcastService, messageService, objectMapper, onlineUserService);
     }
 
     private WebSocketSession authedSession() {
@@ -145,5 +149,23 @@ class DashboardWebSocketHandlerTest {
         verify(viewerService).register(session);
         verify(viewerService).unregister(session);
         verify(session).close();
+    }
+
+    @Test
+    void sendsInitialPresenceSnapshotToViewerOnConnect() throws Exception {
+        onlineUserService.swap("u-1", mock(WebSocketSession.class));
+        onlineUserService.swap("u-2", mock(WebSocketSession.class));
+        when(messageService.loadHistory(null, null, 30)).thenReturn(List.of());
+        WebSocketSession viewer = authedSession();
+
+        handler.afterConnectionEstablished(viewer);
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(viewer), captor.capture());
+        ChatEnvelope<?> snap = captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.PRESENCE_SNAPSHOT))
+                .findFirst().orElseThrow();
+        PresenceSnapshotPayload payload = (PresenceSnapshotPayload) snap.data();
+        assertThat(payload.onlineUserIds()).containsExactlyInAnyOrder("u-1", "u-2");
     }
 }
