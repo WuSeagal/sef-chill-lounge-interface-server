@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -182,6 +184,57 @@ class AttendeeControllerTest {
             assertThat(payload.avatar()).isEqualTo("/new-avatar.png");
             assertThat(payload.avatarColor()).isEqualTo("#FF0000");
             assertThat(payload.avatarBorder()).isFalse();
+        });
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-int-diff-none")
+    void postProfileUpdate_doesNotBroadcast_whenDisplayFieldsUnchanged() throws Exception {
+        seedProfile("u-int-diff-none"); // furName=FooFur, avatarColor=#FF0000, avatar=null, avatarBorder=false
+        mvc.perform(post("/user/profile/update").contentType(APPLICATION_JSON)
+                        .content("{\"furName\":\"FooFur\",\"avatarColor\":\"#FF0000\"}"))
+                .andExpect(status().isOk());
+        verify(chatBroadcastService, never()).broadcastToAll(any());
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-int-diff-topic")
+    void postProfileUpdate_doesNotBroadcast_whenOnlyNonDisplayFieldChanged() throws Exception {
+        seedProfile("u-int-diff-topic");
+        TopicEntity topic = topicRepository.findAll().get(0);
+        mvc.perform(post("/user/profile/update").contentType(APPLICATION_JSON)
+                        .content("{\"topicId\":\"" + topic.getTopicId() + "\"}"))
+                .andExpect(status().isOk());
+        verify(chatBroadcastService, never()).broadcastToAll(any());
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-int-diff-color")
+    void postProfileUpdate_broadcasts_whenOnlyAvatarColorChanged() throws Exception {
+        seedProfile("u-int-diff-color"); // avatarColor=#FF0000
+        mvc.perform(post("/user/profile/update").contentType(APPLICATION_JSON)
+                        .content("{\"avatarColor\":\"#00FF00\"}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(chatBroadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        assertThat(captor.getAllValues()).anySatisfy(env -> {
+            assertThat(env.type()).isEqualTo(ChatEventType.PROFILE_UPDATED);
+            assertThat(((ProfileUpdatedPayload) env.data()).avatarColor()).isEqualTo("#00FF00");
+        });
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "u-int-diff-border")
+    void postProfileUpdate_broadcasts_whenOnlyAvatarBorderChanged() throws Exception {
+        seedProfile("u-int-diff-border"); // avatarBorder=false
+        mvc.perform(post("/user/profile/update").contentType(APPLICATION_JSON)
+                        .content("{\"avatarBorder\":true}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(chatBroadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        assertThat(captor.getAllValues()).anySatisfy(env -> {
+            assertThat(env.type()).isEqualTo(ChatEventType.PROFILE_UPDATED);
+            assertThat(((ProfileUpdatedPayload) env.data()).avatarBorder()).isTrue();
         });
     }
 

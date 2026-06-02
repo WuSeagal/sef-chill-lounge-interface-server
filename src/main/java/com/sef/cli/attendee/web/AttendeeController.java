@@ -28,6 +28,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestController
@@ -54,12 +55,27 @@ public class AttendeeController implements AttendeeApi {
 
     @Override
     public ResponseEntity<ApiResponse<ProfileResponse>> updateMyProfile(UpdateProfileRequest req) {
-        AttendeeDataEntity e = attendeeService.updateProfile(currentUserId(), req);
-        chatBroadcastService.broadcastToAll(new ChatEnvelope<>(
-                ChatEventType.PROFILE_UPDATED,
-                System.currentTimeMillis(),
-                new ProfileUpdatedPayload(e.getUserId(), e.getFurName(), e.getAvatar(), e.getAvatarColor(), e.isAvatarBorder())
-        ));
+        String userId = currentUserId();
+        AttendeeDataEntity before = attendeeService.getProfileOrThrow(userId);
+        String oldFurName = before.getFurName();
+        String oldAvatar = before.getAvatar();
+        String oldAvatarColor = before.getAvatarColor();
+        boolean oldAvatarBorder = before.isAvatarBorder();
+
+        AttendeeDataEntity e = attendeeService.updateProfile(userId, req);
+
+        // 此四個顯示欄位須與前端消費端 patch 欄位一致：useChatMessages.ts / useDashboardFeed.ts。新增顯示欄位時三處需同步。
+        boolean displayChanged = !Objects.equals(oldFurName, e.getFurName())
+                || !Objects.equals(oldAvatar, e.getAvatar())
+                || !Objects.equals(oldAvatarColor, e.getAvatarColor())
+                || oldAvatarBorder != e.isAvatarBorder();
+        if (displayChanged) {
+            chatBroadcastService.broadcastToAll(new ChatEnvelope<>(
+                    ChatEventType.PROFILE_UPDATED,
+                    System.currentTimeMillis(),
+                    new ProfileUpdatedPayload(e.getUserId(), e.getFurName(), e.getAvatar(), e.getAvatarColor(), e.isAvatarBorder())
+            ));
+        }
         return ResponseEntity.ok(ApiResponse.success(attendeeDtoMapper.toProfileResponse(e)));
     }
 
