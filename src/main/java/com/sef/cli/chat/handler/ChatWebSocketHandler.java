@@ -9,8 +9,10 @@ import com.sef.cli.chat.event.ChatEventType;
 import com.sef.cli.chat.event.response.ChatMessageBroadcast;
 import com.sef.cli.chat.event.response.ErrorPayload;
 import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
+import com.sef.cli.chat.event.response.RateLimitedPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
+import com.sef.cli.chat.service.RateLimiterService;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
@@ -42,6 +44,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final MessageService messageService;
     private final AttendeeDataRepository attendeeDataRepository;
     private final ObjectMapper objectMapper;
+    private final RateLimiterService rateLimiterService;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -92,7 +95,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         switch (type) {
             case PING -> broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PONG, System.currentTimeMillis(), null));
-            case CHAT_MESSAGE -> handleChatMessage(session, userId, root.path("data"));
+            case CHAT_MESSAGE -> {
+                long retryAfterMs = rateLimiterService.tryConsume(userId);
+                if (retryAfterMs > 0) {
+                    broadcastService.sendTo(session, new ChatEnvelope<>(
+                            ChatEventType.RATE_LIMITED, System.currentTimeMillis(), new RateLimitedPayload(retryAfterMs)));
+                } else {
+                    handleChatMessage(session, userId, root.path("data"));
+                }
+            }
             default -> sendError(session, "unsupported_inbound_type", "event type not accepted inbound: " + type);
         }
     }

@@ -7,5 +7,6 @@ public enum ChatEventType {
     PING,
     PONG,
     KICKED,
-    ERROR
+    ERROR,
+    RATE_LIMITED
 }

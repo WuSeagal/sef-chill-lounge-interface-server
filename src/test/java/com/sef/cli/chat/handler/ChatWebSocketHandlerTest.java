@@ -8,6 +8,7 @@ import com.sef.cli.chat.event.ChatEventType;
 import com.sef.cli.chat.event.response.ChatMessageBroadcast;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
+import com.sef.cli.chat.service.RateLimiterService;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
@@ -46,6 +47,7 @@ class ChatWebSocketHandlerTest {
     private MessageService messageService;
     private AttendeeDataRepository attendeeDataRepository;
     private ObjectMapper objectMapper;
+    private RateLimiterService rateLimiterService;
     private ChatWebSocketHandler handler;
 
     @BeforeEach
@@ -55,7 +57,9 @@ class ChatWebSocketHandlerTest {
         messageService = mock(MessageService.class);
         attendeeDataRepository = mock(AttendeeDataRepository.class);
         objectMapper = new ObjectMapper();
-        handler = new ChatWebSocketHandler(onlineUserService, broadcastService, messageService, attendeeDataRepository, objectMapper);
+        rateLimiterService = mock(RateLimiterService.class);
+        // 未 stub 時 tryConsume 回 Mockito 預設 0L = 放行；只有 rate-limited 測試會 stub 回 >0。
+        handler = new ChatWebSocketHandler(onlineUserService, broadcastService, messageService, attendeeDataRepository, objectMapper, rateLimiterService);
     }
 
     private WebSocketSession mockAuthedSession(String providerUserId) {
@@ -186,6 +190,22 @@ class ChatWebSocketHandlerTest {
                 .findFirst().orElseThrow().data();
         assertThat(payload.avatarColor()).isEqualTo("#7b9b8f");
         assertThat(payload.avatarBorder()).isTrue();
+    }
+
+    @Test
+    void rateLimitedChatMessageSendsRateLimitedAndDoesNotPersist() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(rateLimiterService.tryConsume("u-1")).thenReturn(5_000L);
+
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"hi\",\"imageUrls\":[]}}"));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.RATE_LIMITED))).isTrue();
+        verify(messageService, never()).persistText(any(), any(), any());
+        verify(broadcastService, never()).broadcastToAll(argThat(envelopeOfType(ChatEventType.CHAT_MESSAGE)));
     }
 
     @Test
