@@ -10,6 +10,7 @@ import com.sef.cli.attendee.entity.AttendeeSocialEntity;
 import com.sef.cli.attendee.entity.AttendeeStickerEntity;
 import com.sef.cli.tag.entity.TagEntity;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import java.util.List;
 
@@ -24,6 +25,7 @@ public interface AttendeeDtoMapper {
 
     TagResponse toTagResponse(TagEntity tag);
 
+    @Mapping(target = "platform", expression = "java(entity.getPlatform().name())")
     SocialResponse toSocialResponse(AttendeeSocialEntity entity);
 
     StickerResponse toStickerResponse(AttendeeStickerEntity entity);

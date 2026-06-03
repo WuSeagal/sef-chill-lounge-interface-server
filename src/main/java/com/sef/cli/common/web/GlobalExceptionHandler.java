@@ -2,6 +2,8 @@ package com.sef.cli.common.web;
 
 import com.sef.cli.common.ApiResponse;
 import com.sef.cli.common.exception.ForbiddenException;
+import com.sef.cli.common.exception.InvalidPlatformException;
+import com.sef.cli.common.exception.InvalidSocialUrlException;
 import com.sef.cli.common.exception.InvalidTopicIdException;
 import com.sef.cli.common.exception.NoOtherTopicAvailableException;
 import com.sef.cli.common.exception.NoTopicAvailableException;
@@ -94,6 +96,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SocialLinkNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> socialLinkNotFound(SocialLinkNotFoundException e) {
         return respond(HttpStatus.NOT_FOUND, "social_link_not_found");
+    }
+
+    @ExceptionHandler(InvalidPlatformException.class)
+    public ResponseEntity<ApiResponse<Object>> invalidPlatform(InvalidPlatformException e) {
+        return respond(HttpStatus.BAD_REQUEST, "invalid_platform");
+    }
+
+    @ExceptionHandler(InvalidSocialUrlException.class)
+    public ResponseEntity<ApiResponse<Object>> invalidSocialUrl(InvalidSocialUrlException e) {
+        return respond(HttpStatus.BAD_REQUEST, "invalid_social_url");
     }
 
     @ExceptionHandler(NoTopicAvailableException.class)

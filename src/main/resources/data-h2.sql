@@ -113,9 +113,9 @@ VALUES
 -- ============================================================
 INSERT INTO ATTENDEE_SOCIAL (user_id, platform, links, created_date, last_modified_date)
 VALUES
-('111427449810799428954', 'twitter', 'https://twitter.com/seagal_fur', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('111427449810799428954', 'plurk', 'https://www.plurk.com/seagal_fur', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('demo-user-002', 'twitter', 'https://twitter.com/wolfie42', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+('111427449810799428954', 'X', 'https://x.com/seagal_fur', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'PLURK', 'https://www.plurk.com/seagal_fur', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('demo-user-002', 'X', 'https://x.com/wolfie42', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ;
 
 -- ============================================================

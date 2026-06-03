@@ -2,12 +2,14 @@ package com.sef.cli.attendee.service;
 
 import com.sef.cli.api.request.AddSocialLinkRequest;
 import com.sef.cli.attendee.entity.AttendeeSocialEntity;
+import com.sef.cli.attendee.enums.PlatformEnum;
 import com.sef.cli.attendee.repository.AttendeeSocialRepository;
 import com.sef.cli.common.exception.ForbiddenException;
+import com.sef.cli.common.exception.InvalidPlatformException;
+import com.sef.cli.common.exception.InvalidSocialUrlException;
 import com.sef.cli.common.exception.SocialLinkNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,50 +25,64 @@ import static org.mockito.Mockito.when;
 class AttendeeSocialServiceTest {
 
     @Mock
-    AttendeeSocialRepository repo;
+    AttendeeSocialRepository repository;
 
-    @InjectMocks
-    AttendeeSocialService service;
+    SocialUrlValidator validator = new SocialUrlValidator();
+
+    private AttendeeSocialService service() {
+        return new AttendeeSocialService(repository, validator);
+    }
 
     @Test
-    void addSocialLink_persists() {
-        when(repo.save(any())).thenAnswer(inv -> {
-            AttendeeSocialEntity e = inv.getArgument(0);
-            e.setId(99L);
-            return e;
-        });
+    void addsValidLinkWithEnumPlatform() {
+        when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+        AttendeeSocialEntity e = service().addSocialLink("u1", new AddSocialLinkRequest("X", "https://x.com/maomao"));
+        assertThat(e.getPlatform()).isEqualTo(PlatformEnum.X);
+        assertThat(e.getUserId()).isEqualTo("u1");
+    }
 
-        AttendeeSocialEntity result = service.addSocialLink("u-1",
-                new AddSocialLinkRequest("twitter", "https://twitter.com/foo"));
+    @Test
+    void rejectsUnknownPlatform() {
+        assertThatThrownBy(() -> service().addSocialLink("u1", new AddSocialLinkRequest("MYSPACE", "https://myspace.com/a")))
+                .isInstanceOf(InvalidPlatformException.class);
+    }
 
-        assertThat(result.getId()).isEqualTo(99L);
-        assertThat(result.getPlatform()).isEqualTo("twitter");
+    @Test
+    void rejectsLocalhostUrl() {
+        assertThatThrownBy(() -> service().addSocialLink("u1", new AddSocialLinkRequest("PERSONAL", "http://localhost:3000")))
+                .isInstanceOf(InvalidSocialUrlException.class);
+    }
+
+    @Test
+    void rejectsPlatformMismatch() {
+        assertThatThrownBy(() -> service().addSocialLink("u1", new AddSocialLinkRequest("GITHUB", "https://x.com/a")))
+                .isInstanceOf(InvalidSocialUrlException.class);
     }
 
     @Test
     void removeSocialLink_deletes_ownEntry() {
-        when(repo.findById(7L)).thenReturn(Optional.of(
+        when(repository.findById(7L)).thenReturn(Optional.of(
                 AttendeeSocialEntity.builder().id(7L).userId("u-1").build()));
 
-        service.removeSocialLink("u-1", 7L);
+        service().removeSocialLink("u-1", 7L);
 
-        verify(repo).deleteById(7L);
+        verify(repository).deleteById(7L);
     }
 
     @Test
     void removeSocialLink_throwsForbidden_whenOtherUser() {
-        when(repo.findById(7L)).thenReturn(Optional.of(
+        when(repository.findById(7L)).thenReturn(Optional.of(
                 AttendeeSocialEntity.builder().id(7L).userId("u-OTHER").build()));
 
-        assertThatThrownBy(() -> service.removeSocialLink("u-1", 7L))
+        assertThatThrownBy(() -> service().removeSocialLink("u-1", 7L))
                 .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
     void removeSocialLink_throwsSocialLinkNotFound_whenMissing() {
-        when(repo.findById(99L)).thenReturn(Optional.empty());
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.removeSocialLink("u-1", 99L))
+        assertThatThrownBy(() -> service().removeSocialLink("u-1", 99L))
                 .isInstanceOf(SocialLinkNotFoundException.class);
     }
 }

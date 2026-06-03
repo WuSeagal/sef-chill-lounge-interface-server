@@ -1,6 +1,7 @@
 package com.sef.cli.attendee.repository;
 
 import com.sef.cli.attendee.entity.AttendeeSocialEntity;
+import com.sef.cli.attendee.enums.PlatformEnum;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -13,5 +14,5 @@ public interface AttendeeSocialRepository extends JpaRepository<AttendeeSocialEn
 
     List<AttendeeSocialEntity> findByUserId(String userId);
 
-    List<AttendeeSocialEntity> findByUserIdAndPlatform(String userId, String platform);
+    List<AttendeeSocialEntity> findByUserIdAndPlatform(String userId, PlatformEnum platform);
 }

@@ -8,6 +8,7 @@ import com.sef.cli.api.response.TagResponse;
 import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.entity.AttendeeSocialEntity;
 import com.sef.cli.attendee.entity.AttendeeStickerEntity;
+import com.sef.cli.attendee.enums.PlatformEnum;
 import com.sef.cli.tag.entity.TagEntity;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
@@ -75,15 +76,15 @@ class AttendeeDtoMapperTest {
         AttendeeSocialEntity e = AttendeeSocialEntity.builder()
                 .id(7L)
                 .userId("u-1")
-                .platform("twitter")
-                .links("https://twitter.com/x")
+                .platform(PlatformEnum.X)
+                .links("https://x.com/testuser")
                 .build();
 
         SocialResponse r = mapper.toSocialResponse(e);
 
         assertThat(r.getId()).isEqualTo(7L);
-        assertThat(r.getPlatform()).isEqualTo("twitter");
-        assertThat(r.getLinks()).isEqualTo("https://twitter.com/x");
+        assertThat(r.getPlatform()).isEqualTo("X");
+        assertThat(r.getLinks()).isEqualTo("https://x.com/testuser");
     }
 
     @Test

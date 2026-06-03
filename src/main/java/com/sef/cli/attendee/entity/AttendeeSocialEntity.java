@@ -1,8 +1,11 @@
 package com.sef.cli.attendee.entity;
 
+import com.sef.cli.attendee.enums.PlatformEnum;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,8 +39,9 @@ public class AttendeeSocialEntity {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "platform", nullable = false)
-    private String platform;
+    private PlatformEnum platform;
 
     @Column(name = "links", nullable = false)
     private String links;

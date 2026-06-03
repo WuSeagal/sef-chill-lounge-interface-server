@@ -1,6 +1,7 @@
 package com.sef.cli.attendee.web;
 
 import com.sef.cli.attendee.entity.AttendeeSocialEntity;
+import com.sef.cli.attendee.enums.PlatformEnum;
 import com.sef.cli.attendee.repository.AttendeeSocialRepository;
 import com.sef.cli.testutil.WithMockAdmin;
 import org.junit.jupiter.api.Test;
@@ -30,16 +31,16 @@ class AttendeeSocialControllerTest {
     @WithMockAdmin(providerUserId = "u-s-1")
     void postSocial_creates() throws Exception {
         mvc.perform(post("/user/social-links").contentType(APPLICATION_JSON)
-                        .content("{\"platform\":\"twitter\",\"links\":\"https://twitter.com/x\"}"))
+                        .content("{\"platform\":\"X\",\"links\":\"https://x.com/testuser\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.platform").value("twitter"));
+                .andExpect(jsonPath("$.data.platform").value("X"));
     }
 
     @Test
     @WithMockAdmin(providerUserId = "u-s-2")
     void postRemoveSocial_ownEntry_returns200() throws Exception {
         AttendeeSocialEntity saved = repo.save(AttendeeSocialEntity.builder()
-                .userId("u-s-2").platform("ig").links("https://ig/x").build());
+                .userId("u-s-2").platform(PlatformEnum.INSTAGRAM).links("https://instagram.com/test").build());
 
         mvc.perform(post("/user/social-links/remove").contentType(APPLICATION_JSON)
                         .content("{\"id\":" + saved.getId() + "}"))
@@ -50,7 +51,7 @@ class AttendeeSocialControllerTest {
     @WithMockAdmin(providerUserId = "u-s-3")
     void postRemoveSocial_other_returns403() throws Exception {
         AttendeeSocialEntity saved = repo.save(AttendeeSocialEntity.builder()
-                .userId("u-OTHER").platform("ig").links("https://x").build());
+                .userId("u-OTHER").platform(PlatformEnum.INSTAGRAM).links("https://instagram.com/test").build());
 
         mvc.perform(post("/user/social-links/remove").contentType(APPLICATION_JSON)
                         .content("{\"id\":" + saved.getId() + "}"))

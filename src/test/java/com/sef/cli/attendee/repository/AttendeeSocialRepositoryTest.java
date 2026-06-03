@@ -1,6 +1,7 @@
 package com.sef.cli.attendee.repository;
 
 import com.sef.cli.attendee.entity.AttendeeSocialEntity;
+import com.sef.cli.attendee.enums.PlatformEnum;
 import com.sef.cli.config.JpaAuditingConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +23,8 @@ class AttendeeSocialRepositoryTest {
     void should_save_social_link() {
         AttendeeSocialEntity entity = AttendeeSocialEntity.builder()
                 .userId("google-user-001")
-                .platform("twitter")
-                .links("https://twitter.com/testuser")
+                .platform(PlatformEnum.X)
+                .links("https://x.com/testuser")
                 .build();
 
         AttendeeSocialEntity saved = attendeeSocialRepository.save(entity);
@@ -36,11 +37,11 @@ class AttendeeSocialRepositoryTest {
     @Test
     void should_find_by_userId() {
         attendeeSocialRepository.save(AttendeeSocialEntity.builder()
-                .userId("test-social-001").platform("twitter").links("https://twitter.com/u1").build());
+                .userId("test-social-001").platform(PlatformEnum.X).links("https://x.com/u1").build());
         attendeeSocialRepository.save(AttendeeSocialEntity.builder()
-                .userId("test-social-001").platform("plurk").links("https://plurk.com/u1").build());
+                .userId("test-social-001").platform(PlatformEnum.PLURK).links("https://plurk.com/u1").build());
         attendeeSocialRepository.save(AttendeeSocialEntity.builder()
-                .userId("test-social-999").platform("twitter").links("https://twitter.com/u9").build());
+                .userId("test-social-999").platform(PlatformEnum.X).links("https://x.com/u9").build());
 
         List<AttendeeSocialEntity> socials = attendeeSocialRepository.findByUserId("test-social-001");
 
@@ -50,36 +51,36 @@ class AttendeeSocialRepositoryTest {
     @Test
     void should_find_by_userId_and_platform() {
         attendeeSocialRepository.save(AttendeeSocialEntity.builder()
-                .userId("test-social-002").platform("twitter").links("https://twitter.com/u2").build());
+                .userId("test-social-002").platform(PlatformEnum.X).links("https://x.com/u2").build());
         attendeeSocialRepository.save(AttendeeSocialEntity.builder()
-                .userId("test-social-002").platform("plurk").links("https://plurk.com/u2").build());
+                .userId("test-social-002").platform(PlatformEnum.PLURK).links("https://plurk.com/u2").build());
 
         List<AttendeeSocialEntity> found = attendeeSocialRepository
-                .findByUserIdAndPlatform("test-social-002", "twitter");
+                .findByUserIdAndPlatform("test-social-002", PlatformEnum.X);
 
         assertThat(found).hasSize(1);
-        assertThat(found.get(0).getLinks()).isEqualTo("https://twitter.com/u2");
+        assertThat(found.get(0).getLinks()).isEqualTo("https://x.com/u2");
     }
 
     @Test
     void should_update_links() {
         AttendeeSocialEntity entity = AttendeeSocialEntity.builder()
                 .userId("test-social-003")
-                .platform("twitter")
-                .links("https://twitter.com/old")
+                .platform(PlatformEnum.X)
+                .links("https://x.com/old")
                 .build();
         AttendeeSocialEntity saved = attendeeSocialRepository.saveAndFlush(entity);
 
-        saved.setLinks("https://twitter.com/new");
+        saved.setLinks("https://x.com/new");
         AttendeeSocialEntity updated = attendeeSocialRepository.saveAndFlush(saved);
 
-        assertThat(updated.getLinks()).isEqualTo("https://twitter.com/new");
+        assertThat(updated.getLinks()).isEqualTo("https://x.com/new");
     }
 
     @Test
     void should_delete_social_link() {
         AttendeeSocialEntity entity = attendeeSocialRepository.save(AttendeeSocialEntity.builder()
-                .userId("test-social-004").platform("twitter").links("https://twitter.com/u4").build());
+                .userId("test-social-004").platform(PlatformEnum.X).links("https://x.com/u4").build());
 
         attendeeSocialRepository.deleteById(entity.getId());
 
