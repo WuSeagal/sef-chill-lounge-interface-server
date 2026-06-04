@@ -113,8 +113,21 @@ VALUES
 -- ============================================================
 INSERT INTO ATTENDEE_SOCIAL (user_id, platform, links, created_date, last_modified_date)
 VALUES
-('111427449810799428954', 'X', 'https://x.com/seagal_fur', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('111427449810799428954', 'PLURK', 'https://www.plurk.com/seagal_fur', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+-- 席格:全部 14 個平台各一條，方便檢視所有平台 icon（URL 皆符合各平台 host pattern）
+('111427449810799428954', 'FACEBOOK',   'https://www.facebook.com/seagal.fur',          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'STEAM',      'https://steamcommunity.com/id/seagalfur',      CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'PLURK',      'https://www.plurk.com/seagal_fur',             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'CAKERESUME', 'https://www.cake.me/seagal-fur',               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'LINKEDIN',   'https://www.linkedin.com/in/seagalfur',        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'TWITCH',     'https://www.twitch.tv/seagalfur',              CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'THREADS',    'https://www.threads.com/@seagal_fur',          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'INSTAGRAM',  'https://www.instagram.com/seagal_fur',         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'DISCORD',    'https://discord.gg/seagalfur',                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'BLUESKY',    'https://bsky.app/profile/seagal.bsky.social',  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'X',          'https://x.com/seagal_fur',                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'GITHUB',     'https://github.com/seagalfur',                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'PERSONAL',   'https://seagal.dev',                           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'OTHER',      'https://linktr.ee/seagalfur',                  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('demo-user-002', 'X', 'https://x.com/wolfie42', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ;
 
