@@ -201,6 +201,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(PayloadTooLargeException.class)
     public ResponseEntity<ApiResponse<Object>> payloadTooLarge(PayloadTooLargeException e) {
+        log.warn("413 payload too large: {} (maxSizeMB={})", e.getMessage(), e.getMaxSizeMb());
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiResponse<>(
                 HttpStatus.PAYLOAD_TOO_LARGE.value(),
                 e.getMessage(),
@@ -210,6 +211,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(UnsupportedMediaTypeException.class)
     public ResponseEntity<ApiResponse<Object>> unsupportedMedia(UnsupportedMediaTypeException e) {
+        log.warn("415 unsupported media type: {}", e.getMessage());
         return respond(HttpStatus.UNSUPPORTED_MEDIA_TYPE, e.getMessage());
     }
 
