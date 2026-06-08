@@ -79,7 +79,7 @@ spring:
             enable: true
             required: true
 
-report:
+feedback:
   mail:
     from: ${MAIL_FROM:anonywsg@gmail.com}
     to: ${MAIL_TO:seagal.wu@seagalogs.com,anonywsg@gmail.com,wuseagal@gmail.com}
