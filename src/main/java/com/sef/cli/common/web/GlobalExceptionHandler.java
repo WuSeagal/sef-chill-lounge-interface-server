@@ -105,7 +105,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidSocialUrlException.class)
     public ResponseEntity<ApiResponse<Object>> invalidSocialUrl(InvalidSocialUrlException e) {
-        return respond(HttpStatus.BAD_REQUEST, "invalid_social_url");
+        return respond(HttpStatus.BAD_REQUEST, e.getErrorCode());
     }
 
     @ExceptionHandler(NoTopicAvailableException.class)
