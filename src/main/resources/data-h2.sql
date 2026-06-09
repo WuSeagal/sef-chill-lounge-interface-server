@@ -2,6 +2,7 @@
 -- Add INSERT statements here for test data or required initial data.
 
 -- Test admin user (Google account: seagalhsu00942@intumit.com)
+-- Fake Data
 INSERT INTO ADMIN_USER (
     id, provider_user_id, email, google_name,
     role_name, enabled, first_login, banned,
@@ -19,6 +20,7 @@ VALUES (
 -- ============================================================
 -- ATTENDEE_DATA (測試參加者)
 -- ============================================================
+-- Fake Data
 INSERT INTO ATTENDEE_DATA (user_id, username, fur_name, avatar, avatar_color, topic_id, created_date, last_modified_date)
 VALUES
 ('111427449810799428954', 'seagalhsu00942', '席格', '/user/seagal.png', '#4FC3F7', 'topic-001', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -74,6 +76,7 @@ VALUES
 ('C004', 'DEVOPS', 'CI/CD', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 -- === CUSTOM (自訂示範) ===
+-- Fake Data
 -- 高人氣 demo:5 holders → 出現在他人可選清單
 ('CUS001', 'CUSTOM', '露營', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 -- 低人氣 demo:1 holder(僅 creator),不應出現
@@ -85,6 +88,7 @@ VALUES
 -- 主測試 user 跨多個 type 各擁有 tag,讓 autofiller / preview 有料展示
 -- demo-user-004 ~ demo-user-006 純作為 CUS001 (露營) 的 holders
 -- ============================================================
+-- Fake Data
 INSERT INTO ATTENDEE_TAG (user_id, tag_id, created_date)
 VALUES
 -- 主測試 user(席格):程式語言 / 身分 / 框架 / 資料庫 / 雲端維運 各一個 + 自訂私房菜(只他自己)
@@ -111,6 +115,7 @@ VALUES
 -- ============================================================
 -- ATTENDEE_SOCIAL (社交平台)
 -- ============================================================
+-- Fake Data
 INSERT INTO ATTENDEE_SOCIAL (user_id, platform, links, created_date, last_modified_date)
 VALUES
 -- 席格:各平台展示資料（URL 皆符合各平台 host pattern 與輸入模板；DISCORD 此筆為伺服器邀請故用 DISCORD_SERVER）
@@ -134,6 +139,7 @@ VALUES
 -- ============================================================
 -- ATTENDEE_STICKER (個人貼圖)
 -- ============================================================
+-- Fake Data
 INSERT INTO ATTENDEE_STICKER (user_id, sticker, created_date, last_modified_date)
 VALUES
 ('111427449810799428954', '/sticker/seagal-1.gif', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -146,16 +152,32 @@ VALUES
 -- ============================================================
 INSERT INTO TOPIC (topic_id, content, created_date, last_modified_date)
 VALUES
-('topic-001', '你最喜歡的動物是什麼？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('topic-002', '如果可以變成任何動物你想變成什麼？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('topic-003', '最近在追什麼作品？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('topic-004', '你的獸設是怎麼來的？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('topic-005', '推薦一首最近在聽的歌！', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+('topic-001', '你的獸設和你的職業有沒有共通點？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-002', '你的Side Project或個人頁面有沒有獸相關元素？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-003', '你為什麼會想接觸軟體業？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-004', '你最初接觸的程式語言？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-005', '除了上班用到的程式語言，你有沒有其他喜歡或擅長的程式語言？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-006', '你有沒有個人網頁？有沒有很酷的畫面設計？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-007', '你有和其他獸圈朋友一起開發過、或想開發什麼專案嗎？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-008', '你有在工作中使用什麼AI服務嗎？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-009', '你知道美味蟹保的祖傳祕方是什麼嗎？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-010', '這次UTFG你最期待哪個活動？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-011', '你是什麼時候進入獸圈的？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-012', '你是什麼時候開始學程式的？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-013', '你在獸圈最喜歡的人？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-014', '你的第一個程式專案成品是什麼？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-015', '你的獸設或名字和程式設計有沒有關聯？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-016', '你有聽過Lizardchi嗎？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-017', '你有委託或畫過和程式設計相關的圖嗎？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-018', '你有在你設計的程式裡面放過什麼有趣的彩蛋？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-019', '你在邊寫程式最常邊吃什麼東西？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('topic-020', '如果你有一個零食櫃，裡面會放什麼？', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ;
 
 -- ============================================================
 -- MESSAGES (聊天歷史 seed)
 -- ============================================================
+-- Fake Data
 INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
 VALUES
 ('msg-seed-001', '111427449810799428954', 'TEXT', '大家好，歡迎來 chill lounge', NULL, NULL, DATEADD('MINUTE', -3, CURRENT_TIMESTAMP)),
