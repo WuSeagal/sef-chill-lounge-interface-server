@@ -9,11 +9,17 @@ import java.util.regex.Pattern;
 @Component
 public class SocialUrlValidator {
 
-    public enum Result { OK, INVALID_URL, UNSAFE_URL, PLATFORM_MISMATCH }
+    public enum Result { OK, INVALID_URL, UNSAFE_URL, PLATFORM_MISMATCH, TOO_LONG }
+
+    /** 社群連結最大長度（前後端一致，避免濫用超長字串） */
+    public static final int MAX_LINKS_LENGTH = 200;
 
     private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
 
     public Result validate(PlatformEnum platform, String raw) {
+        if (raw != null && raw.length() > MAX_LINKS_LENGTH) {
+            return Result.TOO_LONG;
+        }
         URI uri;
         try {
             uri = new URI(raw);

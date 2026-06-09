@@ -42,4 +42,16 @@ class SocialUrlValidatorTest {
     void safeLayerRunsBeforePlatformLayer() {
         assertThat(validator.validate(PlatformEnum.PERSONAL, "http://localhost")).isEqualTo(Result.UNSAFE_URL);
     }
+
+    @Test
+    void urlOver200CharsIsTooLong() {
+        String url = "https://x.com/" + "a".repeat(200); // 214 chars
+        assertThat(validator.validate(PlatformEnum.X, url)).isEqualTo(Result.TOO_LONG);
+    }
+
+    @Test
+    void urlExactly200CharsAllowed() {
+        String pad = "a".repeat(200 - "https://x.com/".length()); // total 200
+        assertThat(validator.validate(PlatformEnum.X, "https://x.com/" + pad)).isEqualTo(Result.OK);
+    }
 }

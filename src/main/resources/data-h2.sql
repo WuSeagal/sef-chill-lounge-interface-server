@@ -113,16 +113,16 @@ VALUES
 -- ============================================================
 INSERT INTO ATTENDEE_SOCIAL (user_id, platform, links, created_date, last_modified_date)
 VALUES
--- 席格:全部 14 個平台各一條，方便檢視所有平台 icon（URL 皆符合各平台 host pattern）
+-- 席格:各平台展示資料（URL 皆符合各平台 host pattern 與輸入模板；DISCORD 此筆為伺服器邀請故用 DISCORD_SERVER）
 ('111427449810799428954', 'FACEBOOK',   'https://www.facebook.com/seagal.fur',          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('111427449810799428954', 'STEAM',      'https://steamcommunity.com/id/seagalfur',      CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'STEAM',      'https://steamcommunity.com/profiles/76561198000000000', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'PLURK',      'https://www.plurk.com/seagal_fur',             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('111427449810799428954', 'CAKERESUME', 'https://www.cake.me/seagal-fur',               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'CAKERESUME', 'https://www.cake.me/me/seagal-fur',            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'LINKEDIN',   'https://www.linkedin.com/in/seagalfur',        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'TWITCH',     'https://www.twitch.tv/seagalfur',              CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'THREADS',    'https://www.threads.com/@seagal_fur',          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'INSTAGRAM',  'https://www.instagram.com/seagal_fur',         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('111427449810799428954', 'DISCORD',    'https://discord.gg/seagalfur',                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('111427449810799428954', 'DISCORD_SERVER', 'https://discord.gg/seagalfur',             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'BLUESKY',    'https://bsky.app/profile/seagal.bsky.social',  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'X',          'https://x.com/seagal_fur',                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('111427449810799428954', 'GITHUB',     'https://github.com/seagalfur',                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
