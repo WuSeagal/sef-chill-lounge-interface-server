@@ -1,6 +1,8 @@
 package com.sef.cli.feedback.service;
 
 import com.sef.cli.api.request.FeedbackRequest;
+import com.sef.cli.testutil.LogCaptor;
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -8,11 +10,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -73,5 +79,32 @@ class FeedbackMailServiceTest {
         ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(captor.capture());
         assertThat(captor.getValue().getText()).isEqualTo("回報者：匿名\n\nc");
+    }
+
+    // ---- 行為 log 斷言（backend-behavior-logging section 7.1）----
+
+    @Test
+    void send_logsSubmitInfoWithTitle() {
+        FeedbackRequest req = new FeedbackRequest();
+        req.setTitle("登入問題");
+        req.setContent("c");
+
+        try (LogCaptor captor = LogCaptor.forClass(FeedbackMailService.class)) {
+            service.send(req);
+            captor.assertLogged(Level.INFO, "[FEEDBACK_SUBMIT]", "登入問題");
+        }
+    }
+
+    @Test
+    void send_mailFailure_logsErrorWithThrowable_andRethrows() {
+        FeedbackRequest req = new FeedbackRequest();
+        req.setTitle("寄信壞掉");
+        req.setContent("c");
+        doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        try (LogCaptor captor = LogCaptor.forClass(FeedbackMailService.class)) {
+            assertThatThrownBy(() -> service.send(req)).isInstanceOf(MailSendException.class);
+            captor.assertLoggedWithThrowable(Level.ERROR, "[FEEDBACK_MAIL_FAIL]");
+        }
     }
 }

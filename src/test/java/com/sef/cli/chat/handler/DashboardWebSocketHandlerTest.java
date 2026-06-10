@@ -10,7 +10,9 @@ import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
 import com.sef.cli.message.service.dto.MessageHistoryData;
+import com.sef.cli.testutil.LogCaptor;
 import com.sef.cli.user.entity.AdminUserEntity;
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -167,5 +169,36 @@ class DashboardWebSocketHandlerTest {
                 .findFirst().orElseThrow();
         PresenceSnapshotPayload payload = (PresenceSnapshotPayload) snap.data();
         assertThat(payload.onlineUserIds()).containsExactlyInAnyOrder("u-1", "u-2");
+    }
+
+    // ---- 行為 log 斷言（backend-behavior-logging section 5.1）----
+
+    @Test
+    void connect_logsDashConnectInfo() throws Exception {
+        WebSocketSession session = authedSession();
+        when(messageService.loadHistory(null, null, 30)).thenReturn(List.of());
+        try (LogCaptor captor = LogCaptor.forClass(DashboardWebSocketHandler.class)) {
+            handler.afterConnectionEstablished(session);
+            captor.assertLogged(Level.INFO, "[DASH_CONNECT]", "viewers=");
+        }
+    }
+
+    @Test
+    void disconnect_logsDashDisconnectInfo() throws Exception {
+        WebSocketSession session = authedSession();
+        try (LogCaptor captor = LogCaptor.forClass(DashboardWebSocketHandler.class)) {
+            handler.afterConnectionClosed(session, CloseStatus.NORMAL);
+            captor.assertLogged(Level.INFO, "[DASH_DISCONNECT]");
+        }
+    }
+
+    @Test
+    void reject_unauthenticated_logsWarn() throws Exception {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.getPrincipal()).thenReturn(null);
+        try (LogCaptor captor = LogCaptor.forClass(DashboardWebSocketHandler.class)) {
+            handler.afterConnectionEstablished(session);
+            captor.assertLogged(Level.WARN, "[DASH_REJECT]");
+        }
     }
 }

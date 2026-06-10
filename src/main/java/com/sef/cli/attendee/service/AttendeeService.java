@@ -15,12 +15,14 @@ import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.topic.entity.TopicEntity;
 import com.sef.cli.topic.service.TopicService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AttendeeService {
@@ -65,7 +67,9 @@ public class AttendeeService {
                 .avatarBorder(req.getAvatarBorder() != null ? req.getAvatarBorder() : false)
                 .topicId(topicId)
                 .build();
-        return attendeeDataRepository.save(entity);
+        AttendeeDataEntity saved = attendeeDataRepository.save(entity);
+        log.info("[PROFILE_CREATE] profile 建立成功, userId={}, topicId={}", userId, topicId);
+        return saved;
     }
 
     @Transactional
@@ -79,7 +83,9 @@ public class AttendeeService {
             topicService.findByTopicIdOrThrow(req.getTopicId());
             entity.setTopicId(req.getTopicId());
         }
-        return attendeeDataRepository.save(entity);
+        AttendeeDataEntity saved = attendeeDataRepository.save(entity);
+        log.info("[PROFILE_UPDATE] profile 更新成功, userId={}", userId);
+        return saved;
     }
 
     @Transactional
@@ -90,6 +96,7 @@ public class AttendeeService {
                 : topicService.pickRandomExcluding(entity.getTopicId());
         entity.setTopicId(newTopic.getTopicId());
         attendeeDataRepository.save(entity);
+        log.info("[TOPIC_REDRAW] topic 重抽, userId={}, topicId={}", userId, newTopic.getTopicId());
         return newTopic;
     }
 

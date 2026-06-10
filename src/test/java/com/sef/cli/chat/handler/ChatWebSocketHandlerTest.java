@@ -12,7 +12,9 @@ import com.sef.cli.chat.service.RateLimiterService;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
+import com.sef.cli.testutil.LogCaptor;
 import com.sef.cli.user.entity.AdminUserEntity;
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -299,5 +301,115 @@ class ChatWebSocketHandlerTest {
 
         assertThat(onlineUserService.getOnlineUserIds()).isEmpty();
         verify(broadcastService, atLeastOnce()).broadcastToAll(argThat(envelopeOfType(ChatEventType.PRESENCE_SNAPSHOT)));
+    }
+
+    // ---- 行為 log 斷言（backend-behavior-logging section 4.1）----
+
+    @Test
+    void connect_logsInfoWithOnlineCount() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.afterConnectionEstablished(session);
+            captor.assertLogged(Level.INFO, "[WS_CONNECT]", "userId=u-1", "online=1");
+        }
+    }
+
+    @Test
+    void reject_unauthenticated_logsWarn() throws Exception {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.getPrincipal()).thenReturn(null);
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.afterConnectionEstablished(session);
+            captor.assertLogged(Level.WARN, "[WS_REJECT]");
+        }
+    }
+
+    @Test
+    void swap_kicksOldSession_logsInfo() throws Exception {
+        handler.afterConnectionEstablished(mockAuthedSession("u-1"));
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.afterConnectionEstablished(mockAuthedSession("u-1"));
+            captor.assertLogged(Level.INFO, "[WS_KICK_SWAP]", "userId=u-1");
+        }
+    }
+
+    @Test
+    void disconnect_logsInfo() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.afterConnectionClosed(session, CloseStatus.NORMAL);
+            captor.assertLogged(Level.INFO, "[WS_DISCONNECT]", "userId=u-1");
+        }
+    }
+
+    @Test
+    void rateLimited_logsWarn() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(rateLimiterService.tryConsume("u-1")).thenReturn(5_000L);
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.handleTextMessage(session, new TextMessage(
+                    "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"hi\",\"imageUrls\":[]}}"));
+            captor.assertLogged(Level.WARN, "[RATE_LIMITED]", "userId=u-1", "retryAfterMs=5000");
+        }
+    }
+
+    @Test
+    void textMessage_logsChatMsgInfoWithRawContent() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(messageService.persistText(eq("u-1"), eq("hello"), eq(List.of()))).thenReturn(
+                MessageEntity.builder().id(1L).messageId("msg-001").userId("u-1")
+                        .messageType(MessageType.TEXT).content("hello").createdDate(LocalDateTime.now()).build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.handleTextMessage(session, new TextMessage(
+                    "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"hello\",\"imageUrls\":[]}}"));
+            // 比照 Lizardchi 記原文 hello + contentLength=5 + imageCount=0
+            captor.assertLogged(Level.INFO, "[CHAT_MSG]", "userId=u-1", "messageId=msg-001",
+                    "content=hello", "contentLength=5", "imageCount=0");
+        }
+    }
+
+    @Test
+    void stickerMessage_logsChatMsgInfoWithStickerUrl() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"))).thenReturn(
+                MessageEntity.builder().id(2L).messageId("msg-002").userId("u-1")
+                        .messageType(MessageType.STICKER).stickerImageUrl("/sticker/u-1/1.png?v=1")
+                        .createdDate(LocalDateTime.now()).build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.handleTextMessage(session, new TextMessage(
+                    "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"STICKER\",\"stickerImageUrl\":\"/sticker/u-1/1.png?v=1\"}}"));
+            captor.assertLogged(Level.INFO, "[CHAT_MSG]", "userId=u-1",
+                    "messageId=msg-002", "stickerImageUrl=/sticker/u-1/1.png?v=1");
+        }
+    }
+
+    @Test
+    void validationFailure_logsMsgFailWarn() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.handleTextMessage(session, new TextMessage("{\"type\":\"GARBAGE\",\"timestamp\":1,\"data\":null}"));
+            captor.assertLogged(Level.WARN, "[WS_MSG_FAIL]", "code=unknown_type");
+        }
+    }
+
+    @Test
+    void inboundFrame_logsDebug() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        try (LogCaptor captor = LogCaptor.forClass(ChatWebSocketHandler.class)) {
+            handler.handleTextMessage(session, new TextMessage("{\"type\":\"PING\",\"timestamp\":1,\"data\":null}"));
+            captor.assertLogged(Level.DEBUG, "[WS_IN]", "userId=u-1", "type=PING");
+        }
     }
 }

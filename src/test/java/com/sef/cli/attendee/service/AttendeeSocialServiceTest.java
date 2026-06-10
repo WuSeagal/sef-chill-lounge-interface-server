@@ -8,6 +8,8 @@ import com.sef.cli.common.exception.ForbiddenException;
 import com.sef.cli.common.exception.InvalidPlatformException;
 import com.sef.cli.common.exception.InvalidSocialUrlException;
 import com.sef.cli.common.exception.SocialLinkNotFoundException;
+import com.sef.cli.testutil.LogCaptor;
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -84,5 +86,44 @@ class AttendeeSocialServiceTest {
 
         assertThatThrownBy(() -> service().removeSocialLink("u-1", 99L))
                 .isInstanceOf(SocialLinkNotFoundException.class);
+    }
+
+    // ---- 行為 log 斷言（backend-behavior-logging section 3.4）----
+
+    @Test
+    void addSocialLink_success_logsInfo() {
+        when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeSocialService.class)) {
+            service().addSocialLink("u-log", new AddSocialLinkRequest("X", "https://x.com/maomao"));
+            captor.assertLogged(Level.INFO, "[SOCIAL_ADD]", "userId=u-log", "platform=X");
+        }
+    }
+
+    @Test
+    void removeSocialLink_success_logsInfo() {
+        when(repository.findById(7L)).thenReturn(Optional.of(
+                AttendeeSocialEntity.builder().id(7L).userId("u-log").build()));
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeSocialService.class)) {
+            service().removeSocialLink("u-log", 7L);
+            captor.assertLogged(Level.INFO, "[SOCIAL_REMOVE]", "userId=u-log", "id=7");
+        }
+    }
+
+    @Test
+    void addSocialLink_invalidPlatform_logsWarn() {
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeSocialService.class)) {
+            assertThatThrownBy(() -> service().addSocialLink("u-log", new AddSocialLinkRequest("MYSPACE", "https://myspace.com/a")))
+                    .isInstanceOf(InvalidPlatformException.class);
+            captor.assertLogged(Level.WARN, "[SOCIAL_ADD_FAIL]", "userId=u-log");
+        }
+    }
+
+    @Test
+    void addSocialLink_invalidUrl_logsWarn() {
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeSocialService.class)) {
+            assertThatThrownBy(() -> service().addSocialLink("u-log", new AddSocialLinkRequest("PERSONAL", "http://localhost:3000")))
+                    .isInstanceOf(InvalidSocialUrlException.class);
+            captor.assertLogged(Level.WARN, "[SOCIAL_ADD_FAIL]", "userId=u-log");
+        }
     }
 }

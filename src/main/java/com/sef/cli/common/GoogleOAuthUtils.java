@@ -8,6 +8,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.sef.cli.common.properties.GoogleOauthProperties;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 
+@Slf4j
 @Component
 public class GoogleOAuthUtils {
 
@@ -50,11 +52,11 @@ public class GoogleOAuthUtils {
             if (verifier.verify(idToken)) {
                 return idToken.getPayload();
             } else {
-                System.err.println("idToken 驗證失敗");
+                log.warn("[OAUTH_VERIFY_FAIL] idToken 驗證未通過");
                 return null;
             }
         } catch (GeneralSecurityException | IOException e) {
-            e.printStackTrace();
+            log.error("[OAUTH_VERIFY_ERROR] idToken 驗證例外, 錯誤: {}", e.getMessage(), e);
             return null;
         }
     }

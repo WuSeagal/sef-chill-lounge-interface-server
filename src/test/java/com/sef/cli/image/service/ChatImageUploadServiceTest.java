@@ -1,11 +1,13 @@
 package com.sef.cli.image.service;
 
+import ch.qos.logback.classic.Level;
 import com.sef.cli.image.entity.ChatImageAssetEntity;
 import com.sef.cli.image.properties.ImageStorageProperties;
 import com.sef.cli.image.repository.ChatImageAssetRepository;
 import com.sef.cli.image.web.dto.ChatImageUploadResponse;
 import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
+import com.sef.cli.testutil.LogCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -149,6 +151,44 @@ class ChatImageUploadServiceTest {
         ChatImageUploadResponse resp = service.upload(file, "shortid");
 
         assertThat(resp.fileName()).startsWith("hortid-").endsWith(".png");
+    }
+
+    @Test
+    void logsInfoOnSuccessfulUpload() {
+        byte[] png = pngHeaderPadded();
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", png);
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        try (LogCaptor captor = LogCaptor.forClass(ChatImageUploadService.class)) {
+            ChatImageUploadResponse resp = service.upload(file, "attendee_abcdef123");
+            captor.assertLogged(Level.INFO, "[CHAT_IMAGE_UPLOAD]",
+                    "userId=attendee_abcdef123", resp.fileName(), "size=" + png.length);
+        }
+    }
+
+    @Test
+    void logsWarnWhenFileTooLarge() {
+        byte[] big = new byte[11 * 1024 * 1024];
+        big[0] = (byte) 0x89; big[1] = 0x50; big[2] = 0x4E; big[3] = 0x47;
+        MockMultipartFile file = new MockMultipartFile("file", "big.png", "image/png", big);
+
+        try (LogCaptor captor = LogCaptor.forClass(ChatImageUploadService.class)) {
+            assertThatThrownBy(() -> service.upload(file, "u-1"))
+                    .isInstanceOf(PayloadTooLargeException.class);
+            captor.assertLogged(Level.WARN, "[CHAT_IMAGE_UPLOAD_FAIL]", "userId=u-1");
+        }
+    }
+
+    @Test
+    void logsWarnWhenUnsupportedMediaType() {
+        byte[] dummy = new byte[16];
+        MockMultipartFile file = new MockMultipartFile("file", "a.bmp", "image/bmp", dummy);
+
+        try (LogCaptor captor = LogCaptor.forClass(ChatImageUploadService.class)) {
+            assertThatThrownBy(() -> service.upload(file, "u-1"))
+                    .isInstanceOf(UnsupportedMediaTypeException.class);
+            captor.assertLogged(Level.WARN, "[CHAT_IMAGE_UPLOAD_FAIL]", "userId=u-1");
+        }
     }
 
     private byte[] pngHeaderPadded() {

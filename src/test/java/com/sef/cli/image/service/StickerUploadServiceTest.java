@@ -1,11 +1,13 @@
 package com.sef.cli.image.service;
 
+import ch.qos.logback.classic.Level;
 import com.sef.cli.api.response.StickerResponse;
 import com.sef.cli.attendee.entity.AttendeeStickerEntity;
 import com.sef.cli.attendee.repository.AttendeeStickerRepository;
 import com.sef.cli.image.properties.ImageStorageProperties;
 import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
+import com.sef.cli.testutil.LogCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -147,6 +149,72 @@ class StickerUploadServiceTest {
         assertThatThrownBy(() -> service.delete(9L, "u-1"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("sticker_not_found");
+    }
+
+    @Test
+    void logsInfoOnSuccessfulUpload() throws Exception {
+        when(repository.countByUserId("u-1")).thenReturn(0L);
+        when(repository.save(any(AttendeeStickerEntity.class)))
+                .thenAnswer(inv -> {
+                    AttendeeStickerEntity e = inv.getArgument(0);
+                    e.setId(99L);
+                    return e;
+                });
+        when(repository.findByUserId("u-1")).thenReturn(List.of());
+        MockMultipartFile file = new MockMultipartFile("file", "s.png", "image/png", VALID_PNG_BYTES);
+
+        try (LogCaptor captor = LogCaptor.forClass(StickerUploadService.class)) {
+            service.upload(file, "u-1");
+            captor.assertLogged(Level.INFO, "[STICKER_UPLOAD]",
+                    "userId=u-1", "size=" + VALID_PNG_BYTES.length);
+        }
+    }
+
+    @Test
+    void logsWarnWhenLimitReached() {
+        when(repository.countByUserId("u-1")).thenReturn(5L);
+        MockMultipartFile file = new MockMultipartFile("file", "s.png", "image/png", VALID_PNG_BYTES);
+
+        try (LogCaptor captor = LogCaptor.forClass(StickerUploadService.class)) {
+            assertThatThrownBy(() -> service.upload(file, "u-1"))
+                    .isInstanceOf(IllegalArgumentException.class);
+            captor.assertLogged(Level.WARN, "[STICKER_UPLOAD_FAIL]", "userId=u-1");
+        }
+    }
+
+    @Test
+    void logsWarnWhenUnsupportedMediaType() {
+        when(repository.countByUserId("u-1")).thenReturn(0L);
+        MockMultipartFile file = new MockMultipartFile("file", "s.svg", "image/svg+xml", "<svg/>".getBytes());
+
+        try (LogCaptor captor = LogCaptor.forClass(StickerUploadService.class)) {
+            assertThatThrownBy(() -> service.upload(file, "u-1"))
+                    .isInstanceOf(UnsupportedMediaTypeException.class);
+            captor.assertLogged(Level.WARN, "[STICKER_UPLOAD_FAIL]", "userId=u-1");
+        }
+    }
+
+    @Test
+    void logsInfoOnSuccessfulDelete() throws Exception {
+        AttendeeStickerEntity row = AttendeeStickerEntity.builder()
+                .id(7L).userId("u-1").sticker("/sticker/u-1/u-1-250101000001-aaa.png").build();
+        when(repository.findByIdAndUserId(7L, "u-1")).thenReturn(Optional.of(row));
+
+        try (LogCaptor captor = LogCaptor.forClass(StickerUploadService.class)) {
+            service.delete(7L, "u-1");
+            captor.assertLogged(Level.INFO, "[STICKER_DELETE]", "userId=u-1", "id=7");
+        }
+    }
+
+    @Test
+    void logsWarnWhenDeleteUnknownId() {
+        when(repository.findByIdAndUserId(9L, "u-1")).thenReturn(Optional.empty());
+
+        try (LogCaptor captor = LogCaptor.forClass(StickerUploadService.class)) {
+            assertThatThrownBy(() -> service.delete(9L, "u-1"))
+                    .isInstanceOf(IllegalArgumentException.class);
+            captor.assertLogged(Level.WARN, "[STICKER_DELETE_FAIL]", "userId=u-1", "id=9");
+        }
     }
 
     @Test

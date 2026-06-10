@@ -24,12 +24,19 @@ public class FeedbackMailService {
     private String[] mailTo;
 
     public void send(FeedbackRequest request) {
+        log.info("[FEEDBACK_SUBMIT] 收到意見回饋, title={}", request.getTitle());
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(mailFrom);
         message.setTo(mailTo);
         message.setSubject(SUBJECT_PREFIX + request.getTitle());
         message.setText(buildBody(request));
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (RuntimeException ex) {
+            log.error("[FEEDBACK_MAIL_FAIL] 意見回饋信件寄送失敗, title={}, 錯誤: {}",
+                    request.getTitle(), ex.getMessage(), ex);
+            throw ex;
+        }
         log.info("意見回饋信件寄送成功：{}", request.getTitle());
     }
 

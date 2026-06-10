@@ -1,9 +1,11 @@
 package com.sef.cli.image.service;
 
+import ch.qos.logback.classic.Level;
 import com.sef.cli.image.properties.ImageStorageProperties;
 import com.sef.cli.image.web.dto.AvatarUploadResponse;
 import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
+import com.sef.cli.testutil.LogCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -92,5 +94,43 @@ class AvatarUploadServiceTest {
         assertThatThrownBy(() -> service.upload(file, "google-123"))
                 .isInstanceOf(PayloadTooLargeException.class)
                 .hasMessage("file_too_large");
+    }
+
+    @Test
+    void logsInfoOnSuccessfulUpload() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "fox.png", "image/png", VALID_PNG_BYTES);
+
+        try (LogCaptor captor = LogCaptor.forClass(AvatarUploadService.class)) {
+            service.upload(file, "google-123");
+            captor.assertLogged(Level.INFO, "[AVATAR_UPLOAD]",
+                    "userId=google-123", "google-123.png", "size=" + VALID_PNG_BYTES.length);
+        }
+    }
+
+    @Test
+    void logsWarnWhenFileTooLarge() {
+        byte[] oversized = new byte[11 * 1024 * 1024];
+        oversized[0] = (byte) 0x89;
+        oversized[1] = 0x50;
+        MockMultipartFile file = new MockMultipartFile("file", "big.png", "image/png", oversized);
+
+        try (LogCaptor captor = LogCaptor.forClass(AvatarUploadService.class)) {
+            assertThatThrownBy(() -> service.upload(file, "google-123"))
+                    .isInstanceOf(PayloadTooLargeException.class);
+            captor.assertLogged(Level.WARN, "[AVATAR_UPLOAD_FAIL]", "userId=google-123");
+        }
+    }
+
+    @Test
+    void logsWarnWhenUnsupportedMediaType() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "fox.svg", "image/svg+xml", "<svg />".getBytes());
+
+        try (LogCaptor captor = LogCaptor.forClass(AvatarUploadService.class)) {
+            assertThatThrownBy(() -> service.upload(file, "google-123"))
+                    .isInstanceOf(UnsupportedMediaTypeException.class);
+            captor.assertLogged(Level.WARN, "[AVATAR_UPLOAD_FAIL]", "userId=google-123");
+        }
     }
 }

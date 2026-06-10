@@ -68,9 +68,14 @@ public class AuthController implements AuthApi {
     @Override
     public void logOutAuth(HttpServletRequest request, HttpServletResponse response) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = null;
         if (authentication != null) {
+            if (authentication.getPrincipal() instanceof AdminUserEntity user) {
+                userId = user.getProviderUserId();
+            }
             new SecurityContextLogoutHandler().logout(request, response, authentication);
         }
+        log.info("[LOGOUT] 使用者登出, userId={}", userId);
         response.setStatus(HttpServletResponse.SC_OK);
     }
 
@@ -96,10 +101,12 @@ public class AuthController implements AuthApi {
             GoogleTokenResponse tokenResponse = GoogleOAuthUtils.getTokenByCode(code);
             payload = GoogleOAuthUtils.verifyIdToken(tokenResponse.getIdToken());
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("[LOGIN_FAIL] Google token 交換或驗證失敗, 錯誤: {}", e.getMessage(), e);
         }
 
         if (payload == null) {
+            // 涵蓋「verify 回 null 但未拋例外」的情況；例外路徑已於上方 catch 記 error，此處 warn 為正常雙層紀錄
+            log.warn("[LOGIN_FAIL] payload 取得失敗, code 驗證未通過");
             return ResponseEntity.ok(ApiResponse.fail(500, "payload取得失敗"));
         }
 
@@ -108,7 +115,8 @@ public class AuthController implements AuthApi {
         String googleName = (String) payload.get("name");
 
         AdminUserEntity user = adminUserRepository.findByProviderUserId(providerUserId).orElse(null);
-        if (user != null) {
+        boolean isNewUser = (user == null);
+        if (!isNewUser) {
             user.setEmail(email);
             user.setGoogleName(googleName);
             adminUserRepository.save(user);
@@ -124,6 +132,7 @@ public class AuthController implements AuthApi {
                     .build();
             adminUserRepository.save(user);
         }
+        log.info("[LOGIN] 使用者登入成功, userId={}, email={}, newUser={}", providerUserId, email, isNewUser);
 
         List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(user.getRoleName()));
         UsernamePasswordAuthenticationToken authentication =

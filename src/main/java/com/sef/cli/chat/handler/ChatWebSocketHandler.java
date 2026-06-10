@@ -50,12 +50,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String providerUserId = resolveProviderUserId(session);
         if (providerUserId == null) {
+            log.warn("[WS_REJECT] 未授權的 /ws/chat 連線嘗試, sessionId={}", session.getId());
             session.close();
             return;
         }
         session.getAttributes().put(ATTR_USER_ID, providerUserId);
 
         onlineUserService.swap(providerUserId, session).ifPresent(oldSession -> {
+            log.info("[WS_KICK_SWAP] 同 user 新連線踢掉舊連線, userId={}, oldSessionId={}, newSessionId={}",
+                    providerUserId, oldSession.getId(), session.getId());
             broadcastService.sendTo(oldSession, new ChatEnvelope<>(ChatEventType.KICKED, System.currentTimeMillis(), null));
             try {
                 oldSession.close(new CloseStatus(4271, "kicked"));
@@ -67,6 +70,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
         broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
+        log.info("[WS_CONNECT] 使用者連線, userId={}, sessionId={}, online={}",
+                providerUserId, session.getId(), onlineUserService.getOnlineUserIds().size());
     }
 
     @Override
@@ -85,6 +90,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
 
         String typeText = root.path("type").asText("");
+        log.debug("[WS_IN] 入站 frame, userId={}, type={}", userId, typeText);
         ChatEventType type;
         try {
             type = ChatEventType.valueOf(typeText);
@@ -98,6 +104,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             case CHAT_MESSAGE -> {
                 long retryAfterMs = rateLimiterService.tryConsume(userId);
                 if (retryAfterMs > 0) {
+                    log.warn("[RATE_LIMITED] 訊息速率限制, userId={}, retryAfterMs={}", userId, retryAfterMs);
                     broadcastService.sendTo(session, new ChatEnvelope<>(
                             ChatEventType.RATE_LIMITED, System.currentTimeMillis(), new RateLimitedPayload(retryAfterMs)));
                 } else {
@@ -117,6 +124,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         onlineUserService.remove(userId, session);
         PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
+        log.info("[WS_DISCONNECT] 使用者斷線, userId={}, sessionId={}, status={}, online={}",
+                userId, session.getId(), status, onlineUserService.getOnlineUserIds().size());
     }
 
     private void handleChatMessage(WebSocketSession session, String userId, JsonNode data) {
@@ -163,6 +172,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             sendError(session, ex.getMessage(), ex.getMessage());
             return;
         }
+        int contentLength = saved.getContent() == null ? 0 : saved.getContent().length();
+        int imageCount = saved.getImageUrls() == null ? 0 : saved.getImageUrls().size();
+        // 比照 Lizardchi [SAY]：記訊息原文 + contentLength/imageCount/stickerImageUrl（D7）
+        log.info("[CHAT_MSG] 訊息發送, userId={}, messageType={}, messageId={}, content={}, contentLength={}, imageCount={}, stickerImageUrl={}",
+                userId, saved.getMessageType(), saved.getMessageId(), saved.getContent(),
+                contentLength, imageCount, saved.getStickerImageUrl());
         AttendeeDataEntity attendee = attendeeDataRepository.findByUserId(userId).orElse(null);
         ChatMessageBroadcast payload = new ChatMessageBroadcast(
                 saved.getId(),
@@ -181,6 +196,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendError(WebSocketSession session, String code, String message) {
+        log.warn("[WS_MSG_FAIL] 訊息處理失敗, code={}", code);
         broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.ERROR, System.currentTimeMillis(), new ErrorPayload(code, message)));
     }
 

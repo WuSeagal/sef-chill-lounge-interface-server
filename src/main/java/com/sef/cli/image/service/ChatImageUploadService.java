@@ -8,6 +8,7 @@ import com.sef.cli.image.web.dto.ChatImageUploadResponse;
 import com.sef.cli.image.web.exception.PayloadTooLargeException;
 import com.sef.cli.image.web.exception.UnsupportedMediaTypeException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatImageUploadService {
@@ -40,6 +42,8 @@ public class ChatImageUploadService {
     public ChatImageUploadResponse upload(MultipartFile file, String userId) {
         long maxBytes = (long) properties.getMaxFileSizeMb() * 1024L * 1024L;
         if (file.getSize() > maxBytes) {
+            log.warn("[CHAT_IMAGE_UPLOAD_FAIL] 檔案過大, userId={}, size={}, maxMb={}",
+                    userId, file.getSize(), properties.getMaxFileSizeMb());
             throw new PayloadTooLargeException("file_too_large", properties.getMaxFileSizeMb());
         }
 
@@ -48,10 +52,13 @@ public class ChatImageUploadService {
 
         ImageFormat byExt = ImageFormat.matchExtension(ext);
         if (byExt == null) {
+            log.warn("[CHAT_IMAGE_UPLOAD_FAIL] 副檔名不支援, userId={}, reason=unsupported_extension, ext={}", userId, ext);
             throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
 
         if (!byExt.matchesMime(file.getContentType())) {
+            log.warn("[CHAT_IMAGE_UPLOAD_FAIL] contentType 不符, userId={}, reason=mime_mismatch, contentType={}",
+                    userId, file.getContentType());
             throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
 
@@ -59,12 +66,14 @@ public class ChatImageUploadService {
         try {
             bytes = file.getBytes();
         } catch (IOException e) {
+            log.warn("[CHAT_IMAGE_UPLOAD_FAIL] 讀取檔案內容失敗, userId={}, reason=read_failed", userId);
             throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
         // Arrays.copyOf 不足 12 自動補 0；不必三元
         byte[] header = Arrays.copyOf(bytes, 12);
         ImageFormat byMagic = MagicByteValidator.detectFormat(header);
         if (byMagic == null || byMagic != byExt) {
+            log.warn("[CHAT_IMAGE_UPLOAD_FAIL] magic byte 不符, userId={}, reason=magic_mismatch, ext={}", userId, ext);
             throw new UnsupportedMediaTypeException("unsupported_image_type");
         }
 
@@ -101,6 +110,8 @@ public class ChatImageUploadService {
         retention.evictOldestIfOver();
 
         String url = properties.getChat().getUrlPrefix() + fileName;
+        log.info("[CHAT_IMAGE_UPLOAD] 聊天圖片上傳成功, userId={}, fileName={}, size={}",
+                userId, fileName, file.getSize());
         return new ChatImageUploadResponse(fileName, url);
     }
 

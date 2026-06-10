@@ -10,8 +10,10 @@ import com.sef.cli.attendee.repository.AttendeeTagRepository;
 import com.sef.cli.common.exception.InvalidTopicIdException;
 import com.sef.cli.common.exception.ProfileAlreadyExistsException;
 import com.sef.cli.common.exception.ProfileNotFoundException;
+import com.sef.cli.testutil.LogCaptor;
 import com.sef.cli.topic.entity.TopicEntity;
 import com.sef.cli.topic.service.TopicService;
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -240,5 +242,44 @@ class AttendeeServiceTest {
         when(attendeeDataRepository.findByUserId("u-x")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> attendeeService.redrawTopicCard("u-x"))
                 .isInstanceOf(ProfileNotFoundException.class);
+    }
+
+    // ---- 行為 log 斷言（backend-behavior-logging section 3.2）----
+
+    @Test
+    void createProfile_logsInfo() {
+        when(attendeeDataRepository.existsByUserId("u-log-1")).thenReturn(false);
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeService.class)) {
+            attendeeService.createProfile("u-log-1", new CreateProfileRequest(null, "Foo", null, null, null, null));
+            captor.assertLogged(Level.INFO, "[PROFILE_CREATE]", "userId=u-log-1");
+        }
+    }
+
+    @Test
+    void updateProfile_logsInfo() {
+        AttendeeDataEntity existing = AttendeeDataEntity.builder().userId("u-log-2").username("u").build();
+        when(attendeeDataRepository.findByUserId("u-log-2")).thenReturn(Optional.of(existing));
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeService.class)) {
+            attendeeService.updateProfile("u-log-2", new UpdateProfileRequest(null, "newFur", null, null, null, null));
+            captor.assertLogged(Level.INFO, "[PROFILE_UPDATE]", "userId=u-log-2");
+        }
+    }
+
+    @Test
+    void redrawTopicCard_logsInfoWithTopicId() {
+        AttendeeDataEntity entity = AttendeeDataEntity.builder().userId("u-log-3").topicId("t-1").build();
+        when(attendeeDataRepository.findByUserId("u-log-3")).thenReturn(Optional.of(entity));
+        when(topicService.pickRandomExcluding("t-1"))
+                .thenReturn(TopicEntity.builder().topicId("t-2").content("new").build());
+        when(attendeeDataRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        try (LogCaptor captor = LogCaptor.forClass(AttendeeService.class)) {
+            attendeeService.redrawTopicCard("u-log-3");
+            captor.assertLogged(Level.INFO, "[TOPIC_REDRAW]", "userId=u-log-3", "topicId=t-2");
+        }
     }
 }

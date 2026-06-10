@@ -49,6 +49,7 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         if (!isAuthenticated(session)) {
+            log.warn("[DASH_REJECT] 未授權的 /ws/dashboard 連線嘗試, sessionId={}", session.getId());
             session.close();
             return;
         }
@@ -59,6 +60,8 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
         try {
             replayRecentHistory(session);
             sendPresenceSnapshot(session);
+            log.info("[DASH_CONNECT] dashboard viewer 連線, sessionId={}, viewers={}",
+                    session.getId(), viewerService.getAllSessions().size());
         } catch (RuntimeException ex) {
             viewerService.unregister(session);
             log.warn("dashboard replay failed, unregistering viewer sessionId={} reason={}", session.getId(), ex.getMessage());
@@ -83,6 +86,8 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         viewerService.unregister(session);
+        log.info("[DASH_DISCONNECT] dashboard viewer 斷線, sessionId={}, viewers={}",
+                session.getId(), viewerService.getAllSessions().size());
     }
 
     private void sendPresenceSnapshot(WebSocketSession session) {
