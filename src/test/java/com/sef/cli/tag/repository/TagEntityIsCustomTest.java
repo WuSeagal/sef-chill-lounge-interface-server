@@ -16,6 +16,7 @@ class TagEntityIsCustomTest {
     @Test
     void persistsIsCustomFlag() {
         TagEntity custom = TagEntity.builder()
+                .tagId("CUS91010")
                 .type("CUSTOM").content("露營").isCustom(true).build();
         tagRepository.save(custom);
 
@@ -23,6 +24,7 @@ class TagEntityIsCustomTest {
         assertThat(loaded.isCustom()).isTrue();
 
         TagEntity def = TagEntity.builder()
+                .tagId("L91010")
                 .type("LANGUAGE").content("Java").isCustom(false).build();
         tagRepository.save(def);
 

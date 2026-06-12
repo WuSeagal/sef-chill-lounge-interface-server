@@ -28,14 +28,18 @@ public class ImageWebConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         ImageFallbackResolver fallback = new ImageFallbackResolver();
-        CacheControl oneDay = CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic();
+        CacheControl immutableOneYear = CacheControl.maxAge(365, TimeUnit.DAYS)
+                .cachePublic()
+                .immutable();
+        CacheControl longLivedOneYear = CacheControl.maxAge(365, TimeUnit.DAYS)
+                .cachePublic();
 
         // fallback resolver 必須在快取鏈「外層」：CachingResourceResolver 只包住 PathResourceResolver，
         // 因此缺檔（null）不會進快取，fallback SVG 也不會被快取頂替後續真檔。各 handler 用獨立 cache，
         // 避免不同前綴下相同相對路徑（如 foo.jpg）的 cache key 互相覆蓋。
         registry.addResourceHandler(properties.getChat().getUrlPrefix() + "**")
                 .addResourceLocations("file:" + properties.getBasePath() + "image/")
-                .setCacheControl(oneDay)
+                .setCacheControl(immutableOneYear)
                 .resourceChain(false)
                 .addResolver(fallback)
                 .addResolver(new CachingResourceResolver(new ConcurrentMapCache("sef-image-chat-cache")))
@@ -43,7 +47,7 @@ public class ImageWebConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler(properties.getUser().getUrlPrefix() + "**")
                 .addResourceLocations("file:" + properties.getBasePath() + "user/")
-                .setCacheControl(oneDay)
+                .setCacheControl(longLivedOneYear)
                 .resourceChain(false)
                 .addResolver(fallback)
                 .addResolver(new CachingResourceResolver(new ConcurrentMapCache("sef-image-user-cache")))
@@ -51,7 +55,7 @@ public class ImageWebConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler(properties.getSticker().getUrlPrefix() + "**")
                 .addResourceLocations("file:" + properties.getBasePath() + "sticker/")
-                .setCacheControl(oneDay)
+                .setCacheControl(immutableOneYear)
                 .resourceChain(false)
                 .addResolver(fallback)
                 .addResolver(new CachingResourceResolver(new ConcurrentMapCache("sef-image-sticker-cache")))

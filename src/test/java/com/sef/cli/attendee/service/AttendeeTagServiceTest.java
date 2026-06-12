@@ -9,6 +9,7 @@ import com.sef.cli.common.exception.TagLimitExceededException;
 import com.sef.cli.tag.config.TagProperties;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.tag.repository.TagRepository;
+import com.sef.cli.tag.service.TagIdGenerator;
 import com.sef.cli.testutil.LogCaptor;
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -43,6 +45,9 @@ class AttendeeTagServiceTest {
     @Mock
     TagProperties tagProperties;
 
+    @Mock
+    TagIdGenerator tagIdGenerator;
+
     @InjectMocks
     AttendeeTagService service;
 
@@ -50,6 +55,10 @@ class AttendeeTagServiceTest {
     void setupDefaults() {
         lenient().when(tagProperties.getMaxPerUser()).thenReturn(20);
         lenient().when(attendeeTagRepository.countByUserId(anyString())).thenReturn(0L);
+        lenient().when(tagIdGenerator.normalizeType(nullable(String.class))).thenAnswer(inv -> {
+            String type = inv.getArgument(0);
+            return type == null ? "CUSTOM" : type.trim().toUpperCase();
+        });
     }
 
     @Test
@@ -87,12 +96,12 @@ class AttendeeTagServiceTest {
     @Test
     void addTag_custom_createsTag_thenJunction() {
         when(tagRepository.findByTypeAndContentNormalized("CUSTOM", "我的標籤")).thenReturn(List.of());
+        when(tagIdGenerator.generate("CUSTOM")).thenReturn("CUS0000A");
         when(tagRepository.save(any())).thenAnswer(inv -> {
             TagEntity t = inv.getArgument(0);
-            t.setTagId("generated-id");
             return t;
         });
-        when(attendeeTagRepository.existsByUserIdAndTagId("u-1", "generated-id")).thenReturn(false);
+        when(attendeeTagRepository.existsByUserIdAndTagId("u-1", "CUS0000A")).thenReturn(false);
         when(attendeeTagRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         // type 未提供 → fallback 大寫 CUSTOM；新建 TAG 必為 isCustom=true（bug fix）
@@ -101,6 +110,7 @@ class AttendeeTagServiceTest {
         assertThat(result.getContent()).isEqualTo("我的標籤");
         assertThat(result.getType()).isEqualTo("CUSTOM");
         assertThat(result.isCustom()).isTrue();
+        assertThat(result.getTagId()).isEqualTo("CUS0000A");
     }
 
     @Test
@@ -184,6 +194,20 @@ class AttendeeTagServiceTest {
 
         assertThat(result.getTagId()).isEqualTo("L001");
         verify(tagRepository, never()).save(any());
+    }
+
+    @Test
+    void addTag_custom_normalizesTypeBeforeSaveAndLookup() {
+        when(tagRepository.findByTypeAndContentNormalized("LANGUAGE", "Kotlin")).thenReturn(List.of());
+        when(tagIdGenerator.generate("LANGUAGE")).thenReturn("L0000A");
+        when(tagRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(attendeeTagRepository.existsByUserIdAndTagId("u-6", "L0000A")).thenReturn(false);
+        when(attendeeTagRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        TagEntity result = service.addTag("u-6", new AddTagRequest(null, " language ", " Kotlin "));
+
+        assertThat(result.getType()).isEqualTo("LANGUAGE");
+        assertThat(result.getTagId()).isEqualTo("L0000A");
     }
 
     @Test

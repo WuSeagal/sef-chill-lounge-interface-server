@@ -29,10 +29,13 @@ class TagRepositoryFindSelectableTest {
         attendeeTagRepository.deleteAll();
 
         TagEntity defaultTag = tagRepository.save(TagEntity.builder()
+                .tagId("L93001")
                 .type("LANGUAGE").content("Java").isCustom(false).build());
         TagEntity lowCustom = tagRepository.save(TagEntity.builder()
+                .tagId("CUS93001")
                 .type("CUSTOM").content("少人有").isCustom(true).build());
         TagEntity popularCustom = tagRepository.save(TagEntity.builder()
+                .tagId("CUS93002")
                 .type("CUSTOM").content("熱門").isCustom(true).build());
 
         for (int i = 1; i <= 5; i++) {

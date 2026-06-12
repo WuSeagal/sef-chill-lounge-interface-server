@@ -9,6 +9,7 @@ import com.sef.cli.common.exception.TagLimitExceededException;
 import com.sef.cli.tag.config.TagProperties;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.tag.repository.TagRepository;
+import com.sef.cli.tag.service.TagIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class AttendeeTagService {
     private final TagRepository tagRepository;
     private final AttendeeTagRepository attendeeTagRepository;
     private final TagProperties tagProperties;
+    private final TagIdGenerator tagIdGenerator;
 
     @Transactional
     public TagEntity addTag(String userId, AddTagRequest req) {
@@ -50,12 +52,13 @@ public class AttendeeTagService {
             }
             // content 路徑：trim → type fallback 大寫 CUSTOM → 先查後建（同內容合併）→ dup-check 冪等
             String content = req.getContent().trim();
-            String type = (req.getType() == null || req.getType().isBlank()) ? "CUSTOM" : req.getType();
+            String type = tagIdGenerator.normalizeType(req.getType());
             // 同內容合併：多筆命中時 is_custom=false（預設 TAG）優先、其次 id 最小，確保 deterministic
             tag = tagRepository.findByTypeAndContentNormalized(type, content).stream()
                     .min(Comparator.comparing(TagEntity::isCustom).thenComparing(TagEntity::getId))
                     .orElseGet(() -> tagRepository.save(TagEntity.builder()
-                            .type(type).content(content).isCustom(true).build())); // @PrePersist 產 tagId
+                            .tagId(tagIdGenerator.generate(type))
+                            .type(type).content(content).isCustom(true).build()));
             // 已持有 → 冪等成功：以既有關聯為準，不重複建 junction、回既有 TAG（D6）
             if (attendeeTagRepository.existsByUserIdAndTagId(userId, tag.getTagId())) {
                 log.info("[TAG_ADD] TAG 已持有（冪等）, userId={}, tagId={}", userId, tag.getTagId());

@@ -16,6 +16,14 @@ public interface TagRepository extends JpaRepository<TagEntity, Long> {
 
     Optional<TagEntity> findByTagId(String tagId);
 
+    @Query("""
+            SELECT t.tagId FROM TagEntity t
+            WHERE t.type = :type
+              AND t.tagId LIKE CONCAT(:prefix, '%')
+            """)
+    List<String> findTagIdsByTypeAndTagIdStartingWith(@Param("type") String type,
+                                                      @Param("prefix") String prefix);
+
     List<TagEntity> findByType(String type);
 
     @Query("""

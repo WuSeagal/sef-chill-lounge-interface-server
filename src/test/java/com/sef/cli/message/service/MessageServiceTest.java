@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class MessageServiceTest {
@@ -32,6 +33,9 @@ class MessageServiceTest {
 
     @Mock
     private AttendeeDataRepository attendeeDataRepository;
+
+    @Mock
+    private MessageIdGenerator messageIdGenerator;
 
     @InjectMocks
     private MessageService messageService;
@@ -60,12 +64,14 @@ class MessageServiceTest {
 
     @Test
     void persistStickerStoresStickerMessage() {
+        when(messageIdGenerator.generate()).thenReturn("260612153045AbC123xy");
         when(messageRepository.save(any(MessageEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         MessageEntity saved = messageService.persistSticker("u-1", "/sticker/u-1/1.png?v=1");
 
         assertThat(saved.getMessageType()).isEqualTo(MessageType.STICKER);
         assertThat(saved.getStickerImageUrl()).isEqualTo("/sticker/u-1/1.png?v=1");
+        assertThat(saved.getMessageId()).isEqualTo("260612153045AbC123xy");
     }
 
     @Test
@@ -77,10 +83,10 @@ class MessageServiceTest {
 
     @Test
     void persistTextStoresNormalizedPayload() {
+        when(messageIdGenerator.generate()).thenReturn("260612153045AbC123xy");
         when(messageRepository.save(any(MessageEntity.class))).thenAnswer(invocation -> {
             MessageEntity entity = invocation.getArgument(0);
             entity.setId(11L);
-            entity.setMessageId("msg-001");
             entity.setCreatedDate(LocalDateTime.of(2026, 5, 25, 10, 0, 0));
             return entity;
         });
@@ -89,6 +95,7 @@ class MessageServiceTest {
                 List.of("/image/a-260526143000-aaa.jpg", "/image/b-260526143000-bbb.jpg"));
 
         assertThat(saved.getMessageType()).isEqualTo(MessageType.TEXT);
+        assertThat(saved.getMessageId()).isEqualTo("260612153045AbC123xy");
         assertThat(saved.getContent()).isEqualTo("hello");
         assertThat(saved.getImageUrls()).containsExactly(
                 "/image/a-260526143000-aaa.jpg", "/image/b-260526143000-bbb.jpg");
@@ -104,10 +111,12 @@ class MessageServiceTest {
 
     @Test
     void persistTextAcceptsImageUrlWithImagePrefix() {
+        when(messageIdGenerator.generate()).thenReturn("260612153045AbC123xy");
         when(messageRepository.save(any(MessageEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         MessageEntity result = messageService.persistText(
                 "u-1", "hello", List.of("/image/u1abcd-260526143000-x7K.png"));
         assertThat(result.getImageUrls()).containsExactly("/image/u1abcd-260526143000-x7K.png");
+        assertThat(result.getMessageId()).isEqualTo("260612153045AbC123xy");
     }
 
     @Test
@@ -143,12 +152,21 @@ class MessageServiceTest {
     @Test
     void loadHistoryCapsLimitAt100() {
         when(messageRepository.findAllByOrderByCreatedDateDescIdDesc(any())).thenReturn(List.of());
-        when(attendeeDataRepository.findByUserIdIn(Set.of())).thenReturn(List.of());
 
         messageService.loadHistory(null, null, 999);
 
         verify(messageRepository).findAllByOrderByCreatedDateDescIdDesc(
                 argThat(pageable -> pageable.getPageNumber() == 0 && pageable.getPageSize() == 100)
         );
+    }
+
+    @Test
+    void loadHistoryDoesNotQueryAttendeesWhenNoMessages() {
+        when(messageRepository.findAllByOrderByCreatedDateDescIdDesc(any())).thenReturn(List.of());
+
+        List<MessageHistoryData> result = messageService.loadHistory(null, null, 50);
+
+        assertThat(result).isEmpty();
+        verify(attendeeDataRepository, never()).findByUserIdIn(any());
     }
 }

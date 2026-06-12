@@ -55,6 +55,7 @@ class TagControllerTest {
     @WithMockAdmin(providerUserId = "u-tg-list-2")
     void getTags_excludesLowHolderCustom() throws Exception {
         TagEntity low = tagRepository.save(TagEntity.builder()
+                .tagId("CUS94001")
                 .type("CUSTOM").content("only-creator-test").isCustom(true).build());
         attendeeTagRepository.save(AttendeeTagEntity.builder()
                 .userId("creator-x").tagId(low.getTagId()).build());
@@ -68,6 +69,7 @@ class TagControllerTest {
     @WithMockAdmin(providerUserId = "u-tg-list-3")
     void getTags_includesHighHolderCustom() throws Exception {
         TagEntity high = tagRepository.save(TagEntity.builder()
+                .tagId("CUS94002")
                 .type("CUSTOM").content("popular-test").isCustom(true).build());
         for (int i = 1; i <= 5; i++) {
             attendeeTagRepository.save(AttendeeTagEntity.builder()

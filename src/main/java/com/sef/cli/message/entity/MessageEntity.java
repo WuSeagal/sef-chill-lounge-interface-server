@@ -1,6 +1,5 @@
 package com.sef.cli.message.entity;
 
-import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.sef.cli.message.enums.MessageType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -68,7 +67,7 @@ public class MessageEntity {
     @PrePersist
     void assignMessageId() {
         if (messageId == null || messageId.isBlank()) {
-            messageId = NanoIdUtils.randomNanoId();
+            throw new IllegalStateException("message_id_required");
         }
     }
 }

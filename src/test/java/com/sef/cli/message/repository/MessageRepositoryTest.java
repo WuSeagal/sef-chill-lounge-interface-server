@@ -28,6 +28,7 @@ class MessageRepositoryTest {
     @Test
     void savesTextMessageWithMultipleImages() {
         MessageEntity entity = MessageEntity.builder()
+                .messageId("260612130001AbCd1234")
                 .userId("message-test-001")
                 .messageType(MessageType.TEXT)
                 .content("hello with images")
@@ -48,18 +49,21 @@ class MessageRepositoryTest {
         LocalDateTime sharedTime = LocalDateTime.of(2026, 5, 25, 10, 0, 0);
 
         MessageEntity olderLowerId = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130002AbCd1234")
                 .userId("message-test-002")
                 .messageType(MessageType.TEXT)
                 .content("older-lower-id")
                 .build());
 
         MessageEntity olderHigherId = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130003AbCd1234")
                 .userId("message-test-003")
                 .messageType(MessageType.TEXT)
                 .content("older-higher-id")
                 .build());
 
         MessageEntity current = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130004AbCd1234")
                 .userId("message-test-004")
                 .messageType(MessageType.TEXT)
                 .content("current")
@@ -78,5 +82,12 @@ class MessageRepositoryTest {
         assertThat(result)
                 .extracting(MessageEntity::getContent)
                 .containsExactly("older-higher-id", "older-lower-id");
+    }
+
+    @Test
+    void seedMessageIdsShouldUseTimestampedFormat() {
+        List<String> messageIds = jdbcTemplate.queryForList("select message_id from messages order by id", String.class);
+
+        assertThat(messageIds).allMatch(id -> id.matches("\\d{12}[0-9A-Za-z_-]{8}"));
     }
 }

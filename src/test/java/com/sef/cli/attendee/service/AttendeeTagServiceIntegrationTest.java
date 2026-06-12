@@ -7,6 +7,7 @@ import com.sef.cli.config.JpaAuditingConfig;
 import com.sef.cli.tag.config.TagProperties;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.tag.repository.TagRepository;
+import com.sef.cli.tag.service.TagIdGenerator;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,12 +38,14 @@ class AttendeeTagServiceIntegrationTest {
     EntityManager em;
 
     AttendeeTagService service;
+    TagIdGenerator tagIdGenerator;
 
     private static final String UQ = "tdd-int-";
 
     @BeforeEach
     void setup() {
-        service = new AttendeeTagService(tagRepository, attendeeTagRepository, new TagProperties());
+        tagIdGenerator = new TagIdGenerator(tagRepository);
+        service = new AttendeeTagService(tagRepository, attendeeTagRepository, new TagProperties(), tagIdGenerator);
     }
 
     private long junctionCount(String tagId) {
@@ -69,6 +72,7 @@ class AttendeeTagServiceIntegrationTest {
     void mergePath_lowThresholdCustom_reusesRow_holdersAccumulate() {
         // 既有未達標 custom（1 holder）
         TagEntity existing = tagRepository.save(TagEntity.builder()
+                .tagId("CUS91000")
                 .type("CUSTOM").content(UQ + "私房菜").isCustom(true).build());
         attendeeTagRepository.save(AttendeeTagEntity.builder()
                 .userId("u-int-a").tagId(existing.getTagId()).build());
@@ -88,6 +92,7 @@ class AttendeeTagServiceIntegrationTest {
     @Test
     void reusePath_existingDefaultTag_notNewRow_staysNonCustom() {
         TagEntity def = tagRepository.save(TagEntity.builder()
+                .tagId("L91000")
                 .type("LANGUAGE").content(UQ + "Rust").isCustom(false).build());
         em.flush();
         long tagRowsBefore = tagRepository.count();
@@ -105,6 +110,7 @@ class AttendeeTagServiceIntegrationTest {
     @Test
     void idempotent_whenAlreadyAssociated_noDuplicateJunction() {
         TagEntity def = tagRepository.save(TagEntity.builder()
+                .tagId("L91001")
                 .type("LANGUAGE").content(UQ + "Go").isCustom(false).build());
         attendeeTagRepository.save(AttendeeTagEntity.builder()
                 .userId("u-int-d").tagId(def.getTagId()).build());

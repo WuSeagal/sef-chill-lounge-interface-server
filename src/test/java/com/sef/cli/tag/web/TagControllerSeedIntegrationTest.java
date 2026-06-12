@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Verifies the live seed in data-h2.sql aligns with the holders threshold rule.
- * Without this, a future seed edit (e.g. removing a CUS001 holder) could drift below
+ * Without this, a future seed edit (e.g. removing a CUS00001 holder) could drift below
  * the threshold without any unit test catching it, because the existing TagControllerTest
  * uses test-local fixtures rather than the seed.
  */
@@ -29,8 +29,8 @@ class TagControllerSeedIntegrationTest {
     @Test
     @WithMockAdmin(providerUserId = "u-seed-test-1")
     void seedHasHighHolderCustomVisible_butLowHolderCustomHidden() throws Exception {
-        // CUS001 (露營) has 5 holders → meets threshold → should appear in CUSTOM bucket
-        // CUS002 (私房菜) has 1 holder (creator only) → below threshold → hidden
+        // CUS00001 (露營) has 5 holders → meets threshold → should appear in CUSTOM bucket
+        // CUS00002 (私房菜) has 1 holder (creator only) → below threshold → hidden
         mvc.perform(get("/tags"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.CUSTOM[*].content", hasItem("露營")))

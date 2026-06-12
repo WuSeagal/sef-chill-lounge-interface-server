@@ -22,6 +22,7 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final AttendeeDataRepository attendeeDataRepository;
+    private final MessageIdGenerator messageIdGenerator;
 
     public MessageEntity persistText(String userId, String content, List<String> imageUrls) {
         String normalizedContent = content == null ? "" : content.trim();
@@ -46,6 +47,7 @@ public class MessageService {
         }
 
         return messageRepository.save(MessageEntity.builder()
+                .messageId(messageIdGenerator.generate())
                 .userId(userId)
                 .messageType(MessageType.TEXT)
                 .content(normalizedContent.isBlank() ? null : normalizedContent)
@@ -59,6 +61,7 @@ public class MessageService {
         }
 
         return messageRepository.save(MessageEntity.builder()
+                .messageId(messageIdGenerator.generate())
                 .userId(userId)
                 .messageType(MessageType.STICKER)
                 .stickerImageUrl(stickerImageUrl.trim())
@@ -75,6 +78,10 @@ public class MessageService {
                         beforeId == null ? Long.MAX_VALUE : beforeId,
                         PageRequest.of(0, cappedLimit)
                 );
+
+        if (entities.isEmpty()) {
+            return List.of();
+        }
 
         Map<String, AttendeeDataEntity> attendeeMap = attendeeDataRepository.findByUserIdIn(
                         entities.stream().map(MessageEntity::getUserId).collect(Collectors.toSet())

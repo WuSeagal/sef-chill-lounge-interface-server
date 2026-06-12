@@ -47,6 +47,33 @@ class ImageWebConfigIntegrationTest {
     }
 
     @Test
+    void chatImagesUseImmutableOneYearCache() throws Exception {
+        mvc.perform(get("/image/test.png"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
+    }
+
+    @Test
+    void userAvatarsUseLongCacheWithoutImmutable() throws Exception {
+        Files.write(tempBase.resolve("user/test.png"), new byte[]{
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A});
+
+        mvc.perform(get("/user/test.png"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "max-age=31536000, public"));
+    }
+
+    @Test
+    void stickersUseImmutableOneYearCache() throws Exception {
+        Files.write(tempBase.resolve("sticker/test.png"), new byte[]{
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A});
+
+        mvc.perform(get("/sticker/test.png"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "max-age=31536000, public, immutable"));
+    }
+
+    @Test
     void missingImageReturnsFallbackSvg() throws Exception {
         // 行為變更（error-page-handler change）：圖檔不存在改回 fallback SVG 200，不再 404
         mvc.perform(get("/image/missing.png"))

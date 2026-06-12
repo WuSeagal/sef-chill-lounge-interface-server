@@ -28,6 +28,7 @@ class TagRepositoryFindByTypeAndContentTest {
     @Test
     void matches_default_tag() {
         TagEntity def = tagRepository.save(TagEntity.builder()
+                .tagId("L92001")
                 .type("LANGUAGE").content(UQ + "Kotlin").isCustom(false).build());
 
         List<TagEntity> found = tagRepository.findByTypeAndContentNormalized("LANGUAGE", UQ + "Kotlin");
@@ -38,6 +39,7 @@ class TagRepositoryFindByTypeAndContentTest {
     @Test
     void matches_lowThreshold_custom_tag() {
         TagEntity custom = tagRepository.save(TagEntity.builder()
+                .tagId("CUS92001")
                 .type("CUSTOM").content(UQ + "私房菜").isCustom(true).build());
 
         List<TagEntity> found = tagRepository.findByTypeAndContentNormalized("CUSTOM", UQ + "私房菜");
@@ -48,6 +50,7 @@ class TagRepositoryFindByTypeAndContentTest {
     @Test
     void matches_case_insensitive() {
         TagEntity tag = tagRepository.save(TagEntity.builder()
+                .tagId("L92002")
                 .type("LANGUAGE").content(UQ + "Java").isCustom(false).build());
 
         List<TagEntity> found = tagRepository.findByTypeAndContentNormalized("LANGUAGE", UQ + "java");
@@ -58,6 +61,7 @@ class TagRepositoryFindByTypeAndContentTest {
     @Test
     void does_not_match_different_type_same_content() {
         tagRepository.save(TagEntity.builder()
+                .tagId("L92003")
                 .type("LANGUAGE").content(UQ + "Go").isCustom(false).build());
 
         List<TagEntity> found = tagRepository.findByTypeAndContentNormalized("CUSTOM", UQ + "Go");
@@ -75,8 +79,10 @@ class TagRepositoryFindByTypeAndContentTest {
     @Test
     void returns_all_rows_when_duplicate_content() {
         TagEntity a = tagRepository.save(TagEntity.builder()
+                .tagId("CUS92002")
                 .type("CUSTOM").content(UQ + "重複").isCustom(true).build());
         TagEntity b = tagRepository.save(TagEntity.builder()
+                .tagId("CUS92003")
                 .type("CUSTOM").content(UQ + "重複").isCustom(true).build());
 
         List<TagEntity> found = tagRepository.findByTypeAndContentNormalized("CUSTOM", UQ + "重複");

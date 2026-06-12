@@ -1,6 +1,5 @@
 package com.sef.cli.tag.entity;
 
-import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -59,8 +58,8 @@ public class TagEntity {
 
     @PrePersist
     public void prePersist() {
-        if (this.tagId == null) {
-            this.tagId = NanoIdUtils.randomNanoId();
+        if (this.tagId == null || this.tagId.isBlank()) {
+            throw new IllegalStateException("tag_id_required");
         }
     }
 }
