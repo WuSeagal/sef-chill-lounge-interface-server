@@ -2,10 +2,12 @@ package com.sef.cli.chat.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sef.cli.announcement.service.AnnouncementService;
 import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.repository.AttendeeDataRepository;
 import com.sef.cli.chat.event.ChatEnvelope;
 import com.sef.cli.chat.event.ChatEventType;
+import com.sef.cli.chat.event.response.AnnouncementPayload;
 import com.sef.cli.chat.event.response.ChatMessageBroadcast;
 import com.sef.cli.chat.event.response.ErrorPayload;
 import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
@@ -45,6 +47,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final AttendeeDataRepository attendeeDataRepository;
     private final ObjectMapper objectMapper;
     private final RateLimiterService rateLimiterService;
+    private final AnnouncementService announcementService;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -69,6 +72,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
         broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
+        // 晚到者補送目前公告（接於 presence snapshot 之後）；無公告則不送
+        String announcement = announcementService.getCurrent();
+        if (announcement != null) {
+            broadcastService.sendTo(session, new ChatEnvelope<>(
+                    ChatEventType.ANNOUNCEMENT, System.currentTimeMillis(), new AnnouncementPayload(announcement)));
+        }
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
         log.info("[WS_CONNECT] 使用者連線, userId={}, sessionId={}, online={}",
                 providerUserId, session.getId(), onlineUserService.getOnlineUserIds().size());

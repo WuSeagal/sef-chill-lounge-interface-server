@@ -9,5 +9,6 @@ public enum ChatEventType {
     KICKED,
     ERROR,
     RATE_LIMITED,
-    MESSAGE_DELETED
+    MESSAGE_DELETED,
+    ANNOUNCEMENT
 }

@@ -78,6 +78,7 @@ public class SecurityConfig {
                         // 公開列表 / 隨機 endpoints 需登入
                         .requestMatchers("/members").authenticated()
                         .requestMatchers("/messages", "/messages/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/announcement").authenticated()
                         .requestMatchers("/tags").authenticated()
                         .requestMatchers("/topics/**").authenticated()
                         // 既有

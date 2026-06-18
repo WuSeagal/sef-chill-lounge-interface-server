@@ -1,6 +1,8 @@
 package com.sef.cli.chat.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sef.cli.announcement.service.AnnouncementService;
+import com.sef.cli.chat.event.response.AnnouncementPayload;
 import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.repository.AttendeeDataRepository;
 import com.sef.cli.chat.event.ChatEnvelope;
@@ -50,6 +52,7 @@ class ChatWebSocketHandlerTest {
     private AttendeeDataRepository attendeeDataRepository;
     private ObjectMapper objectMapper;
     private RateLimiterService rateLimiterService;
+    private AnnouncementService announcementService;
     private ChatWebSocketHandler handler;
 
     @BeforeEach
@@ -60,8 +63,9 @@ class ChatWebSocketHandlerTest {
         attendeeDataRepository = mock(AttendeeDataRepository.class);
         objectMapper = new ObjectMapper();
         rateLimiterService = mock(RateLimiterService.class);
-        // 未 stub 時 tryConsume 回 Mockito 預設 0L = 放行；只有 rate-limited 測試會 stub 回 >0。
-        handler = new ChatWebSocketHandler(onlineUserService, broadcastService, messageService, attendeeDataRepository, objectMapper, rateLimiterService);
+        announcementService = mock(AnnouncementService.class);
+        // 未 stub 時 tryConsume 回 Mockito 預設 0L = 放行；getCurrent() 預設 null = 無公告。
+        handler = new ChatWebSocketHandler(onlineUserService, broadcastService, messageService, attendeeDataRepository, objectMapper, rateLimiterService, announcementService);
     }
 
     private WebSocketSession mockAuthedSession(String providerUserId) {
@@ -108,6 +112,43 @@ class ChatWebSocketHandlerTest {
         assertThat(onlineUserService.getOnlineUserIds()).containsExactly("u-1");
         verify(broadcastService).sendTo(eq(session), any());
         verify(broadcastService).broadcastToAll(any());
+    }
+
+    @Test
+    void connectSendsCurrentAnnouncementWhenPresent() throws Exception {
+        when(announcementService.getCurrent()).thenReturn("公告X");
+        WebSocketSession session = mockAuthedSession("u-1");
+
+        handler.afterConnectionEstablished(session);
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        List<ChatEnvelope<?>> sent = captor.getAllValues();
+        assertThat(sent.stream().anyMatch(e ->
+                e.type() == ChatEventType.ANNOUNCEMENT
+                        && e.data() instanceof AnnouncementPayload p
+                        && "公告X".equals(p.text()))).isTrue();
+        // 須接於 presence snapshot 之後（spec/D1）
+        int presenceIdx = -1;
+        int announcementIdx = -1;
+        for (int i = 0; i < sent.size(); i++) {
+            if (presenceIdx == -1 && sent.get(i).type() == ChatEventType.PRESENCE_SNAPSHOT) presenceIdx = i;
+            if (sent.get(i).type() == ChatEventType.ANNOUNCEMENT) announcementIdx = i;
+        }
+        assertThat(presenceIdx).isGreaterThanOrEqualTo(0);
+        assertThat(announcementIdx).isGreaterThan(presenceIdx);
+    }
+
+    @Test
+    void connectDoesNotSendAnnouncementWhenAbsent() throws Exception {
+        // announcementService.getCurrent() 預設回 null
+        WebSocketSession session = mockAuthedSession("u-1");
+
+        handler.afterConnectionEstablished(session);
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        assertThat(captor.getAllValues().stream().noneMatch(typeIs(ChatEventType.ANNOUNCEMENT))).isTrue();
     }
 
     @Test
