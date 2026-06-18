@@ -126,6 +126,7 @@ CREATE TABLE MESSAGES (
     image_urls          JSON,
     sticker_image_url   VARCHAR(1024),
     created_date        TIMESTAMP NOT NULL,
+    deleted             BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT unique_message_id UNIQUE (message_id)
 );
 

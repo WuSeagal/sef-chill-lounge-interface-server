@@ -10,21 +10,33 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @Transactional
 public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
+    // 名稱沿用既有歷史查詢，但以 @Query 排除 soft-deleted 訊息（deleted = false）。
+    @Query("""
+            select m
+            from MessageEntity m
+            where m.deleted = false
+            order by m.createdDate desc, m.id desc
+            """)
     List<MessageEntity> findAllByOrderByCreatedDateDescIdDesc(Pageable pageable);
 
     @Query("""
             select m
             from MessageEntity m
-            where m.createdDate < :before
-               or (m.createdDate = :before and m.id < :beforeId)
+            where (m.createdDate < :before
+               or (m.createdDate = :before and m.id < :beforeId))
+              and m.deleted = false
             order by m.createdDate desc, m.id desc
             """)
     List<MessageEntity> findHistoryBefore(@Param("before") LocalDateTime before,
                                           @Param("beforeId") Long beforeId,
                                           Pageable pageable);
+
+    // soft-delete 用：須能取得包含 deleted = true 的訊息（idempotent 判定）。
+    Optional<MessageEntity> findByMessageId(String messageId);
 }

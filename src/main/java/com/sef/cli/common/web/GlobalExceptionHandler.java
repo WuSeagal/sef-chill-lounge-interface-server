@@ -5,6 +5,7 @@ import com.sef.cli.common.exception.ForbiddenException;
 import com.sef.cli.common.exception.InvalidPlatformException;
 import com.sef.cli.common.exception.InvalidSocialUrlException;
 import com.sef.cli.common.exception.InvalidTopicIdException;
+import com.sef.cli.common.exception.MessageNotFoundException;
 import com.sef.cli.common.exception.NoOtherTopicAvailableException;
 import com.sef.cli.common.exception.NoTopicAvailableException;
 import com.sef.cli.common.exception.ProfileAlreadyExistsException;
@@ -71,6 +72,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProfileNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> profileNotFound(ProfileNotFoundException e) {
         return respond(HttpStatus.NOT_FOUND, "profile_not_found");
+    }
+
+    @ExceptionHandler(MessageNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> messageNotFound(MessageNotFoundException e) {
+        return respond(HttpStatus.NOT_FOUND, "message_not_found");
     }
 
     @ExceptionHandler(ProfileAlreadyExistsException.class)

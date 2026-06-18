@@ -2,6 +2,9 @@ package com.sef.cli.message.service;
 
 import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.repository.AttendeeDataRepository;
+import com.sef.cli.common.HostAuthz;
+import com.sef.cli.common.exception.ForbiddenException;
+import com.sef.cli.common.exception.MessageNotFoundException;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.repository.MessageRepository;
@@ -66,6 +69,29 @@ public class MessageService {
                 .messageType(MessageType.STICKER)
                 .stickerImageUrl(stickerImageUrl.trim())
                 .build());
+    }
+
+    /**
+     * Host 軟刪除訊息。僅 host 可執行；非 host 擲 {@link ForbiddenException}，
+     * 訊息不存在擲 {@link MessageNotFoundException}，已刪除則為 idempotent no-op。
+     *
+     * @return true 表示本次呼叫實際將訊息標記為刪除；false 表示先前已刪除（no-op）
+     */
+    public boolean softDelete(String messageId, String requesterProviderUserId) {
+        if (!HostAuthz.isHost(requesterProviderUserId)) {
+            throw new ForbiddenException();
+        }
+
+        MessageEntity message = messageRepository.findByMessageId(messageId)
+                .orElseThrow(MessageNotFoundException::new);
+
+        if (message.isDeleted()) {
+            return false;
+        }
+
+        message.setDeleted(true);
+        messageRepository.save(message);
+        return true;
     }
 
     public List<MessageHistoryData> loadHistory(LocalDateTime before, Long beforeId, int limit) {

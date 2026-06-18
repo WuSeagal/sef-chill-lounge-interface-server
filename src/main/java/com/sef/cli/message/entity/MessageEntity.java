@@ -64,6 +64,9 @@ public class MessageEntity {
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdDate;
 
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted;
+
     @PrePersist
     void assignMessageId() {
         if (messageId == null || messageId.isBlank()) {

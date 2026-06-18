@@ -4,6 +4,9 @@ import com.sef.cli.attendee.entity.AttendeeDataEntity;
 import com.sef.cli.attendee.repository.AttendeeDataRepository;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
+import com.sef.cli.common.HostAuthz;
+import com.sef.cli.common.exception.ForbiddenException;
+import com.sef.cli.common.exception.MessageNotFoundException;
 import com.sef.cli.message.repository.MessageRepository;
 import com.sef.cli.message.service.dto.MessageHistoryData;
 import org.junit.jupiter.api.Test;
@@ -15,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -168,5 +172,58 @@ class MessageServiceTest {
 
         assertThat(result).isEmpty();
         verify(attendeeDataRepository, never()).findByUserIdIn(any());
+    }
+
+    @Test
+    void softDeleteByHostMarksDeletedAndReturnsTrue() {
+        MessageEntity msg = MessageEntity.builder()
+                .id(11L)
+                .messageId("m-1")
+                .userId("author-001")
+                .messageType(MessageType.TEXT)
+                .content("inappropriate")
+                .build();
+        when(messageRepository.findByMessageId("m-1")).thenReturn(Optional.of(msg));
+        when(messageRepository.save(any(MessageEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        boolean changed = messageService.softDelete("m-1", HostAuthz.HOST_PROVIDER_USER_ID);
+
+        assertThat(changed).isTrue();
+        assertThat(msg.isDeleted()).isTrue();
+        verify(messageRepository).save(msg);
+    }
+
+    @Test
+    void softDeleteByNonHostThrowsForbiddenAndDoesNotTouchRepository() {
+        assertThatThrownBy(() -> messageService.softDelete("m-1", "not-the-host"))
+                .isInstanceOf(ForbiddenException.class);
+        verify(messageRepository, never()).findByMessageId(any());
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void softDeleteMissingMessageThrowsNotFound() {
+        when(messageRepository.findByMessageId("nope")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.softDelete("nope", HostAuthz.HOST_PROVIDER_USER_ID))
+                .isInstanceOf(MessageNotFoundException.class);
+    }
+
+    @Test
+    void softDeleteAlreadyDeletedIsIdempotentNoOp() {
+        MessageEntity msg = MessageEntity.builder()
+                .id(11L)
+                .messageId("m-1")
+                .userId("author-001")
+                .messageType(MessageType.TEXT)
+                .content("already gone")
+                .deleted(true)
+                .build();
+        when(messageRepository.findByMessageId("m-1")).thenReturn(Optional.of(msg));
+
+        boolean changed = messageService.softDelete("m-1", HostAuthz.HOST_PROVIDER_USER_ID);
+
+        assertThat(changed).isFalse();
+        verify(messageRepository, never()).save(any());
     }
 }

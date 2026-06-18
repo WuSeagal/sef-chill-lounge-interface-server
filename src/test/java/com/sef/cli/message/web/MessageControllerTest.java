@@ -1,9 +1,17 @@
 package com.sef.cli.message.web;
 
+import com.sef.cli.chat.event.ChatEventType;
+import com.sef.cli.chat.event.response.MessageDeletedPayload;
+import com.sef.cli.chat.service.ChatBroadcastService;
+import com.sef.cli.common.HostAuthz;
+import com.sef.cli.common.exception.ForbiddenException;
+import com.sef.cli.common.exception.MessageNotFoundException;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
 import com.sef.cli.message.service.dto.MessageHistoryData;
+import com.sef.cli.testutil.LogCaptor;
 import com.sef.cli.testutil.WithMockAdmin;
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,9 +23,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -31,6 +44,9 @@ class MessageControllerTest {
 
     @MockitoBean
     MessageService messageService;
+
+    @MockitoBean
+    ChatBroadcastService chatBroadcastService;
 
     @Test
     @WithMockAdmin(providerUserId = "msg-user-001")
@@ -98,5 +114,63 @@ class MessageControllerTest {
         mvc.perform(get("/messages"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("unauthenticated"));
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = HostAuthz.HOST_PROVIDER_USER_ID)
+    void hostDeleteReturns200EnvelopeAndBroadcastsMessageDeleted() throws Exception {
+        when(messageService.softDelete("m-1", HostAuthz.HOST_PROVIDER_USER_ID)).thenReturn(true);
+
+        try (LogCaptor captor = LogCaptor.forClass(MessageController.class)) {
+            mvc.perform(post("/messages/remove").contentType(APPLICATION_JSON).content("{\"messageId\":\"m-1\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+
+            captor.assertLogged(Level.INFO, "[MESSAGE_DELETE]", "messageId=m-1");
+        }
+
+        verify(chatBroadcastService).broadcastToAll(argThat(env ->
+                env.type() == ChatEventType.MESSAGE_DELETED
+                        && env.data() instanceof MessageDeletedPayload payload
+                        && payload.messageId().equals("m-1")));
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = "not-the-host")
+    void nonHostDeleteReturns403AndDoesNotBroadcast() throws Exception {
+        when(messageService.softDelete("m-1", "not-the-host")).thenThrow(new ForbiddenException());
+
+        mvc.perform(post("/messages/remove").contentType(APPLICATION_JSON).content("{\"messageId\":\"m-1\"}"))
+                .andExpect(status().isForbidden());
+
+        verify(chatBroadcastService, never()).broadcastToAll(any());
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = HostAuthz.HOST_PROVIDER_USER_ID)
+    void deleteMissingMessageReturns404() throws Exception {
+        when(messageService.softDelete("nope", HostAuthz.HOST_PROVIDER_USER_ID))
+                .thenThrow(new MessageNotFoundException());
+
+        mvc.perform(post("/messages/remove").contentType(APPLICATION_JSON).content("{\"messageId\":\"nope\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockAdmin(providerUserId = HostAuthz.HOST_PROVIDER_USER_ID)
+    void idempotentDeleteReturns200WithoutBroadcast() throws Exception {
+        when(messageService.softDelete("m-1", HostAuthz.HOST_PROVIDER_USER_ID)).thenReturn(false);
+
+        mvc.perform(post("/messages/remove").contentType(APPLICATION_JSON).content("{\"messageId\":\"m-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(chatBroadcastService, never()).broadcastToAll(any());
+    }
+
+    @Test
+    void deleteUnauthenticatedReturns401() throws Exception {
+        mvc.perform(post("/messages/remove").contentType(APPLICATION_JSON).content("{\"messageId\":\"m-1\"}"))
+                .andExpect(status().isUnauthorized());
     }
 }

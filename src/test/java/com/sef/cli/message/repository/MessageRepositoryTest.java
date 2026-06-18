@@ -90,4 +90,80 @@ class MessageRepositoryTest {
 
         assertThat(messageIds).allMatch(id -> id.matches("\\d{12}[0-9A-Za-z_-]{8}"));
     }
+
+    @Test
+    void findByMessageIdReturnsMessageEvenWhenDeleted() {
+        messageRepository.deleteAll();
+        MessageEntity entity = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130010AbCd1234")
+                .userId("del-test-001")
+                .messageType(MessageType.TEXT)
+                .content("soft deleted")
+                .build());
+        jdbcTemplate.update("update messages set deleted = true where id = ?", entity.getId());
+
+        assertThat(messageRepository.findByMessageId("260612130010AbCd1234")).isPresent();
+    }
+
+    @Test
+    void findAllExcludesDeletedMessages() {
+        messageRepository.deleteAll();
+        messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130011AbCd1234")
+                .userId("del-test-002")
+                .messageType(MessageType.TEXT)
+                .content("visible")
+                .build());
+        MessageEntity deleted = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130012AbCd1234")
+                .userId("del-test-003")
+                .messageType(MessageType.TEXT)
+                .content("deleted")
+                .build());
+        jdbcTemplate.update("update messages set deleted = true where id = ?", deleted.getId());
+
+        List<MessageEntity> result = messageRepository.findAllByOrderByCreatedDateDescIdDesc(PageRequest.of(0, 10));
+
+        assertThat(result).extracting(MessageEntity::getContent).containsExactly("visible");
+    }
+
+    @Test
+    void findHistoryBeforeExcludesDeletedMessages() {
+        messageRepository.deleteAll();
+        LocalDateTime sharedTime = LocalDateTime.of(2026, 5, 25, 10, 0, 0);
+
+        MessageEntity olderVisible = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130013AbCd1234")
+                .userId("del-test-004")
+                .messageType(MessageType.TEXT)
+                .content("older-visible")
+                .build());
+        MessageEntity olderDeleted = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130014AbCd1234")
+                .userId("del-test-005")
+                .messageType(MessageType.TEXT)
+                .content("older-deleted")
+                .build());
+        MessageEntity current = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260612130015AbCd1234")
+                .userId("del-test-006")
+                .messageType(MessageType.TEXT)
+                .content("current")
+                .build());
+
+        jdbcTemplate.update("update messages set created_date = ? where id = ?", sharedTime, olderVisible.getId());
+        jdbcTemplate.update("update messages set created_date = ? where id = ?", sharedTime, olderDeleted.getId());
+        jdbcTemplate.update("update messages set created_date = ? where id = ?", sharedTime.plusMinutes(1), current.getId());
+        jdbcTemplate.update("update messages set deleted = true where id = ?", olderDeleted.getId());
+
+        List<MessageEntity> result = messageRepository.findHistoryBefore(
+                sharedTime.plusMinutes(1),
+                current.getId(),
+                PageRequest.of(0, 10)
+        );
+
+        assertThat(result)
+                .extracting(MessageEntity::getContent)
+                .containsExactly("older-visible");
+    }
 }
