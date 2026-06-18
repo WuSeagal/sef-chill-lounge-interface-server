@@ -12,6 +12,7 @@ import com.sef.cli.chat.event.response.ChatMessageBroadcast;
 import com.sef.cli.chat.event.response.ErrorPayload;
 import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
 import com.sef.cli.chat.event.response.RateLimitedPayload;
+import com.sef.cli.chat.event.response.TypingPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.chat.service.RateLimiterService;
@@ -120,6 +121,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     handleChatMessage(session, userId, root.path("data"));
                 }
             }
+            case TYPING -> handleTyping(userId);
             default -> sendError(session, "unsupported_inbound_type", "event type not accepted inbound: " + type);
         }
     }
@@ -202,6 +204,19 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 saved.getStickerImageUrl(),
                 saved.getCreatedDate());
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, System.currentTimeMillis(), payload));
+    }
+
+    // TYPING 不是訊息：不消耗 rate-limiter token、不持久化，只查顯示欄位後廣播。
+    // high-frequency 事件，log 採 debug 以免洗版。
+    private void handleTyping(String userId) {
+        AttendeeDataEntity attendee = attendeeDataRepository.findByUserId(userId).orElse(null);
+        log.debug("[TYPING] 輸入中, userId={}", userId);
+        TypingPayload payload = new TypingPayload(
+                userId,
+                attendee == null ? null : attendee.getFurName(),
+                attendee == null ? null : attendee.getAvatar(),
+                attendee == null ? null : attendee.getAvatarColor());
+        broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.TYPING, System.currentTimeMillis(), payload));
     }
 
     private void sendError(WebSocketSession session, String code, String message) {

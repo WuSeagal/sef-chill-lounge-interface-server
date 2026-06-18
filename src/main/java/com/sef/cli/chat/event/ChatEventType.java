@@ -10,5 +10,6 @@ public enum ChatEventType {
     ERROR,
     RATE_LIMITED,
     MESSAGE_DELETED,
-    ANNOUNCEMENT
+    ANNOUNCEMENT,
+    TYPING
 }

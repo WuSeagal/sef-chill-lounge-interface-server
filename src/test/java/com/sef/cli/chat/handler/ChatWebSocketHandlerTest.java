@@ -8,6 +8,7 @@ import com.sef.cli.attendee.repository.AttendeeDataRepository;
 import com.sef.cli.chat.event.ChatEnvelope;
 import com.sef.cli.chat.event.ChatEventType;
 import com.sef.cli.chat.event.response.ChatMessageBroadcast;
+import com.sef.cli.chat.event.response.TypingPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.chat.service.RateLimiterService;
@@ -331,6 +332,70 @@ class ChatWebSocketHandlerTest {
         verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
         assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.ERROR))).isTrue();
         verify(messageService, never()).persistText(any(), any(), any());
+    }
+
+    // ---- TYPING 輸入中廣播 ----
+
+    @Test
+    void handleTypingBroadcastsToAllWithDisplayFields() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").avatar("/a.png").avatarColor("#7b9b8f").build()));
+
+        handler.handleTextMessage(session, new TextMessage("{\"type\":\"TYPING\",\"timestamp\":1,\"data\":null}"));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        TypingPayload payload = (TypingPayload) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.TYPING)).findFirst().orElseThrow().data();
+        assertThat(payload.userId()).isEqualTo("u-1");
+        assertThat(payload.furName()).isEqualTo("Fox");
+        assertThat(payload.avatar()).isEqualTo("/a.png");
+        assertThat(payload.avatarColor()).isEqualTo("#7b9b8f");
+    }
+
+    @Test
+    void typingDoesNotConsumeRateLimitOrPersist() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        handler.handleTextMessage(session, new TextMessage("{\"type\":\"TYPING\",\"timestamp\":1,\"data\":null}"));
+
+        verify(rateLimiterService, never()).tryConsume(any());
+        verify(messageService, never()).persistText(any(), any(), any());
+        verify(messageService, never()).persistSticker(any(), any());
+    }
+
+    @Test
+    void typingNotRejectedAsUnsupportedInbound() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        handler.handleTextMessage(session, new TextMessage("{\"type\":\"TYPING\",\"timestamp\":1,\"data\":null}"));
+
+        // 不得回任何 ERROR envelope（尤其不得是 unsupported_inbound_type）
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        assertThat(captor.getAllValues().stream().noneMatch(typeIs(ChatEventType.ERROR))).isTrue();
+    }
+
+    @Test
+    void typingWithUnknownAttendeeBroadcastsNullDisplayFields() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.empty());
+
+        handler.handleTextMessage(session, new TextMessage("{\"type\":\"TYPING\",\"timestamp\":1,\"data\":null}"));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        TypingPayload payload = (TypingPayload) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.TYPING)).findFirst().orElseThrow().data();
+        assertThat(payload.userId()).isEqualTo("u-1");
+        assertThat(payload.furName()).isNull();
+        assertThat(payload.avatar()).isNull();
+        assertThat(payload.avatarColor()).isNull();
     }
 
     @Test
