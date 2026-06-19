@@ -11,4 +11,5 @@ public class AuthResponse {
     private String googleName;
     private Boolean enabled;
     private Boolean firstLogin;
+    private Boolean banned;
 }

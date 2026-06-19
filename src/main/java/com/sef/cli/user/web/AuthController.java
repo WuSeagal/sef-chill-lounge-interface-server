@@ -47,6 +47,11 @@ public class AuthController implements AuthApi {
             Object principal = authentication.getPrincipal();
 
             if (principal instanceof AdminUserEntity user) {
+                // banned 須即時反映 DB 當下狀態，不可信任 session 內序列化的 principal 快照（D2）。
+                boolean banned = adminUserRepository.findByProviderUserId(user.getProviderUserId())
+                        .map(AdminUserEntity::getBanned)
+                        .map(Boolean.TRUE::equals)
+                        .orElse(false);
                 return ResponseEntity.ok(
                         ApiResponse.success(
                                 AuthResponse.builder()
@@ -55,6 +60,7 @@ public class AuthController implements AuthApi {
                                         .googleName(user.getGoogleName())
                                         .firstLogin(user.getFirstLogin())
                                         .enabled(user.getEnabled())
+                                        .banned(banned)
                                         .build()));
             } else {
                 return ResponseEntity.status(401).body(ApiResponse.fail(401, "找不到用戶！"));

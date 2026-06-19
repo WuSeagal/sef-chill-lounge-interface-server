@@ -7,6 +7,7 @@ import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.DashboardViewerService;
 import com.sef.cli.chat.service.OnlineUserService;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
 import com.sef.cli.message.service.dto.MessageHistoryData;
@@ -43,6 +44,7 @@ class DashboardWebSocketHandlerTest {
     private MessageService messageService;
     private ObjectMapper objectMapper;
     private OnlineUserService onlineUserService;
+    private BanGuard banGuard;
     private DashboardWebSocketHandler handler;
 
     @BeforeEach
@@ -52,13 +54,18 @@ class DashboardWebSocketHandlerTest {
         messageService = mock(MessageService.class);
         objectMapper = new ObjectMapper();
         onlineUserService = new OnlineUserService();
-        handler = new DashboardWebSocketHandler(viewerService, broadcastService, messageService, objectMapper, onlineUserService);
+        banGuard = mock(BanGuard.class); // 預設 isBanned=false
+        handler = new DashboardWebSocketHandler(viewerService, broadcastService, messageService, objectMapper, onlineUserService, banGuard);
     }
 
     private WebSocketSession authedSession() {
+        return authedSession("viewer-1");
+    }
+
+    private WebSocketSession authedSession(String providerUserId) {
         WebSocketSession session = mock(WebSocketSession.class);
         AdminUserEntity user = AdminUserEntity.builder()
-                .providerUserId("viewer-1").roleName("USER").enabled(true)
+                .providerUserId(providerUserId).roleName("USER").enabled(true)
                 .firstLogin(false).banned(false).build();
         Authentication auth = new UsernamePasswordAuthenticationToken(user, null, List.of());
         when(session.getPrincipal()).thenReturn((Principal) auth);
@@ -78,6 +85,19 @@ class DashboardWebSocketHandlerTest {
         handler.afterConnectionEstablished(session);
 
         verify(session).close();
+        verify(viewerService, never()).register(any());
+    }
+
+    @Test
+    void closesSessionAndSkipsRegisterWhenUserBanned() throws Exception {
+        WebSocketSession session = authedSession("banned-viewer");
+        when(banGuard.isBanned("banned-viewer")).thenReturn(true);
+
+        handler.afterConnectionEstablished(session);
+
+        ArgumentCaptor<CloseStatus> closeStatusCaptor = ArgumentCaptor.forClass(CloseStatus.class);
+        verify(session).close(closeStatusCaptor.capture());
+        assertThat(closeStatusCaptor.getValue().getCode()).isEqualTo(4403);
         verify(viewerService, never()).register(any());
     }
 

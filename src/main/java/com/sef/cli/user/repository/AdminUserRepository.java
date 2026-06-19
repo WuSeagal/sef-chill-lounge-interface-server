@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -20,4 +21,6 @@ public interface AdminUserRepository
     Optional<AdminUserEntity> findByProviderUserId(String providerUserId);
 
     boolean existsByProviderUserId(String providerUserId);
+
+    List<AdminUserEntity> findByBannedTrue();
 }

@@ -8,6 +8,7 @@ import com.sef.cli.attendee.entity.AttendeeSocialEntity;
 import com.sef.cli.attendee.service.AttendeeSocialService;
 import com.sef.cli.attendee.web.map.AttendeeDtoMapper;
 import com.sef.cli.common.ApiResponse;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.user.entity.AdminUserEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,17 +24,22 @@ public class AttendeeSocialController implements AttendeeSocialApi {
 
     private final AttendeeSocialService service;
     private final AttendeeDtoMapper mapper;
+    private final BanGuard banGuard;
 
     @Override
     public ResponseEntity<ApiResponse<SocialResponse>> addSocialLink(AddSocialLinkRequest req) {
-        AttendeeSocialEntity e = service.addSocialLink(currentUserId(), req);
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        AttendeeSocialEntity e = service.addSocialLink(userId, req);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(mapper.toSocialResponse(e)));
     }
 
     @Override
     public ResponseEntity<ApiResponse<Object>> removeSocialLink(RemoveSocialLinkRequest req) {
-        service.removeSocialLink(currentUserId(), req.getId());
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        service.removeSocialLink(userId, req.getId());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

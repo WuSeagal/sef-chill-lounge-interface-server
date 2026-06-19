@@ -9,6 +9,7 @@ import com.sef.cli.chat.event.response.PresenceSnapshotPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.DashboardViewerService;
 import com.sef.cli.chat.service.OnlineUserService;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.message.service.MessageService;
 import com.sef.cli.message.service.dto.MessageHistoryData;
 import com.sef.cli.user.entity.AdminUserEntity;
@@ -45,12 +46,20 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
     private final MessageService messageService;
     private final ObjectMapper objectMapper;
     private final OnlineUserService onlineUserService;
+    private final BanGuard banGuard;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        if (!isAuthenticated(session)) {
+        String providerUserId = resolveProviderUserId(session);
+        if (providerUserId == null) {
             log.warn("[DASH_REJECT] 未授權的 /ws/dashboard 連線嘗試, sessionId={}", session.getId());
             session.close();
+            return;
+        }
+        // 即時查 DB 判斷封禁（D2）：banned 者拒絕連線，不加入 viewer registry。
+        if (banGuard.isBanned(providerUserId)) {
+            log.warn("[DASH_REJECT] 被封禁使用者嘗試連線 /ws/dashboard, userId={}, sessionId={}", providerUserId, session.getId());
+            session.close(new CloseStatus(4403, "banned"));
             return;
         }
         // Register before replay so live messages arriving mid-replay are also delivered
@@ -108,8 +117,14 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private boolean isAuthenticated(WebSocketSession session) {
+    private String resolveProviderUserId(WebSocketSession session) {
         Principal principal = session.getPrincipal();
-        return principal instanceof Authentication auth && auth.getPrincipal() instanceof AdminUserEntity;
+        if (!(principal instanceof Authentication auth)) {
+            return null;
+        }
+        if (!(auth.getPrincipal() instanceof AdminUserEntity user)) {
+            return null;
+        }
+        return user.getProviderUserId();
     }
 }

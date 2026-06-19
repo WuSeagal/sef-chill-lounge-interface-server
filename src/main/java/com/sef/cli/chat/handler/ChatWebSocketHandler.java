@@ -16,6 +16,7 @@ import com.sef.cli.chat.event.response.TypingPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.chat.service.RateLimiterService;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
@@ -49,6 +50,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final RateLimiterService rateLimiterService;
     private final AnnouncementService announcementService;
+    private final BanGuard banGuard;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -56,6 +58,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (providerUserId == null) {
             log.warn("[WS_REJECT] 未授權的 /ws/chat 連線嘗試, sessionId={}", session.getId());
             session.close();
+            return;
+        }
+        // 即時查 DB 判斷封禁（D2）：banned 者拒絕連線，不加入 presence、不送任何廣播。
+        if (banGuard.isBanned(providerUserId)) {
+            log.warn("[WS_REJECT] 被封禁使用者嘗試連線 /ws/chat, userId={}, sessionId={}", providerUserId, session.getId());
+            session.close(new CloseStatus(4403, "banned"));
             return;
         }
         session.getAttributes().put(ATTR_USER_ID, providerUserId);

@@ -2,6 +2,7 @@ package com.sef.cli.image.web;
 
 import com.sef.cli.api.response.StickerResponse;
 import com.sef.cli.common.ApiResponse;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.image.service.StickerUploadService;
 import com.sef.cli.user.entity.AdminUserEntity;
 import lombok.RequiredArgsConstructor;
@@ -24,17 +25,22 @@ import org.springframework.web.multipart.MultipartFile;
 public class StickerController {
 
     private final StickerUploadService stickerUploadService;
+    private final BanGuard banGuard;
 
     @PostMapping
     public ResponseEntity<ApiResponse<StickerResponse>> uploadSticker(
             @RequestParam("file") MultipartFile file) {
-        StickerResponse response = stickerUploadService.upload(file, currentUserId());
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        StickerResponse response = stickerUploadService.upload(file, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteSticker(@PathVariable Long id) {
-        stickerUploadService.delete(id, currentUserId());
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        stickerUploadService.delete(id, userId);
         return ResponseEntity.ok(ApiResponse.<Void>success(null));
     }
 

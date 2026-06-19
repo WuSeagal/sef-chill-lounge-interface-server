@@ -7,6 +7,7 @@ import com.sef.cli.api.response.TagResponse;
 import com.sef.cli.attendee.service.AttendeeTagService;
 import com.sef.cli.attendee.web.map.AttendeeDtoMapper;
 import com.sef.cli.common.ApiResponse;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.tag.entity.TagEntity;
 import com.sef.cli.user.entity.AdminUserEntity;
 import lombok.RequiredArgsConstructor;
@@ -23,17 +24,22 @@ public class AttendeeTagController implements AttendeeTagApi {
 
     private final AttendeeTagService attendeeTagService;
     private final AttendeeDtoMapper attendeeDtoMapper;
+    private final BanGuard banGuard;
 
     @Override
     public ResponseEntity<ApiResponse<TagResponse>> addTag(AddTagRequest req) {
-        TagEntity t = attendeeTagService.addTag(currentUserId(), req);
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        TagEntity t = attendeeTagService.addTag(userId, req);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(attendeeDtoMapper.toTagResponse(t)));
     }
 
     @Override
     public ResponseEntity<ApiResponse<Object>> removeTag(RemoveTagRequest req) {
-        attendeeTagService.removeTag(currentUserId(), req.getTagId());
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        attendeeTagService.removeTag(userId, req.getTagId());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

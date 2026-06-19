@@ -1,6 +1,7 @@
 package com.sef.cli.image.web;
 
 import com.sef.cli.common.ApiResponse;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.image.service.AvatarUploadService;
 import com.sef.cli.image.web.dto.AvatarUploadResponse;
 import com.sef.cli.user.entity.AdminUserEntity;
@@ -22,11 +23,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class AvatarController {
 
     private final AvatarUploadService avatarUploadService;
+    private final BanGuard banGuard;
 
     @PostMapping("/avatar")
     public ResponseEntity<ApiResponse<AvatarUploadResponse>> uploadAvatar(
             @RequestParam("file") MultipartFile file) {
-        AvatarUploadResponse response = avatarUploadService.upload(file, currentUserId());
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        AvatarUploadResponse response = avatarUploadService.upload(file, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 

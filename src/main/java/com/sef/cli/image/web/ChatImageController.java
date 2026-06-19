@@ -1,6 +1,7 @@
 package com.sef.cli.image.web;
 
 import com.sef.cli.common.ApiResponse;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.image.service.ChatImageUploadService;
 import com.sef.cli.image.web.dto.ChatImageUploadResponse;
 import com.sef.cli.user.entity.AdminUserEntity;
@@ -22,11 +23,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class ChatImageController {
 
     private final ChatImageUploadService uploadService;
+    private final BanGuard banGuard;
 
     @PostMapping("/chat-image")
     public ResponseEntity<ApiResponse<ChatImageUploadResponse>> upload(
             @RequestParam("file") MultipartFile file) {
-        ChatImageUploadResponse response = uploadService.upload(file, currentUserId());
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        ChatImageUploadResponse response = uploadService.upload(file, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 

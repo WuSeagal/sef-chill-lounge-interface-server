@@ -17,6 +17,7 @@ import com.sef.cli.chat.event.ChatEventType;
 import com.sef.cli.chat.event.response.ProfileUpdatedPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.common.ApiResponse;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.topic.web.map.TopicDtoMapper;
 import com.sef.cli.user.entity.AdminUserEntity;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class AttendeeController implements AttendeeApi {
     private final AttendeeDtoMapper attendeeDtoMapper;
     private final TopicDtoMapper topicDtoMapper;
     private final ChatBroadcastService chatBroadcastService;
+    private final BanGuard banGuard;
 
     @Override
     public ResponseEntity<ApiResponse<ProfileResponse>> getMyProfile() {
@@ -48,7 +50,9 @@ public class AttendeeController implements AttendeeApi {
 
     @Override
     public ResponseEntity<ApiResponse<ProfileResponse>> createMyProfile(CreateProfileRequest req) {
-        AttendeeDataEntity e = attendeeService.createProfile(currentUserId(), req);
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        AttendeeDataEntity e = attendeeService.createProfile(userId, req);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(attendeeDtoMapper.toProfileResponse(e)));
     }
@@ -56,6 +60,7 @@ public class AttendeeController implements AttendeeApi {
     @Override
     public ResponseEntity<ApiResponse<ProfileResponse>> updateMyProfile(UpdateProfileRequest req) {
         String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
         AttendeeDataEntity before = attendeeService.getProfileOrThrow(userId);
         String oldFurName = before.getFurName();
         String oldAvatar = before.getAvatar();
@@ -109,7 +114,9 @@ public class AttendeeController implements AttendeeApi {
 
     @Override
     public ResponseEntity<ApiResponse<TopicResponse>> redrawTopicCard() {
-        TopicResponse data = topicDtoMapper.toResponse(attendeeService.redrawTopicCard(currentUserId()));
+        String userId = currentUserId();
+        banGuard.assertNotBanned(userId);
+        TopicResponse data = topicDtoMapper.toResponse(attendeeService.redrawTopicCard(userId));
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 

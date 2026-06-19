@@ -12,6 +12,7 @@ import com.sef.cli.chat.event.response.TypingPayload;
 import com.sef.cli.chat.service.ChatBroadcastService;
 import com.sef.cli.chat.service.OnlineUserService;
 import com.sef.cli.chat.service.RateLimiterService;
+import com.sef.cli.common.BanGuard;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
@@ -54,6 +55,7 @@ class ChatWebSocketHandlerTest {
     private ObjectMapper objectMapper;
     private RateLimiterService rateLimiterService;
     private AnnouncementService announcementService;
+    private BanGuard banGuard;
     private ChatWebSocketHandler handler;
 
     @BeforeEach
@@ -65,8 +67,10 @@ class ChatWebSocketHandlerTest {
         objectMapper = new ObjectMapper();
         rateLimiterService = mock(RateLimiterService.class);
         announcementService = mock(AnnouncementService.class);
-        // 未 stub 時 tryConsume 回 Mockito 預設 0L = 放行；getCurrent() 預設 null = 無公告。
-        handler = new ChatWebSocketHandler(onlineUserService, broadcastService, messageService, attendeeDataRepository, objectMapper, rateLimiterService, announcementService);
+        banGuard = mock(BanGuard.class);
+        // 未 stub 時 tryConsume 回 Mockito 預設 0L = 放行；getCurrent() 預設 null = 無公告；
+        // banGuard.isBanned 預設 false = 未封禁。
+        handler = new ChatWebSocketHandler(onlineUserService, broadcastService, messageService, attendeeDataRepository, objectMapper, rateLimiterService, announcementService, banGuard);
     }
 
     private WebSocketSession mockAuthedSession(String providerUserId) {
@@ -102,6 +106,20 @@ class ChatWebSocketHandlerTest {
 
         verify(session).close();
         assertThat(onlineUserService.getOnlineUserIds()).isEmpty();
+    }
+
+    @Test
+    void closesSessionAndSkipsPresenceWhenUserBanned() throws Exception {
+        WebSocketSession session = mockAuthedSession("banned-1");
+        when(banGuard.isBanned("banned-1")).thenReturn(true);
+
+        handler.afterConnectionEstablished(session);
+
+        ArgumentCaptor<CloseStatus> closeStatusCaptor = ArgumentCaptor.forClass(CloseStatus.class);
+        verify(session).close(closeStatusCaptor.capture());
+        assertThat(closeStatusCaptor.getValue().getCode()).isEqualTo(4403);
+        assertThat(onlineUserService.getOnlineUserIds()).isEmpty();
+        verify(broadcastService, never()).broadcastToAll(any());
     }
 
     @Test
