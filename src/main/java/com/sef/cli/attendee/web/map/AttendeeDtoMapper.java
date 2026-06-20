@@ -19,6 +19,8 @@ public interface AttendeeDtoMapper {
 
     ProfileResponse toProfileResponse(AttendeeDataEntity entity);
 
+    // tags 由 MemberController 以批次查詢後另行填入（entity 無 tags 來源），此處 ignore 避免未對應警告。
+    @Mapping(target = "tags", ignore = true)
     MemberResponse toMemberResponse(AttendeeDataEntity entity);
 
     List<MemberResponse> toMemberResponseList(List<AttendeeDataEntity> entities);

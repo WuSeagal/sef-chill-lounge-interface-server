@@ -29,4 +29,12 @@ public interface AttendeeTagRepository extends JpaRepository<AttendeeTagEntity, 
     @Query("SELECT t FROM TagEntity t WHERE t.tagId IN " +
             "(SELECT a.tagId FROM AttendeeTagEntity a WHERE a.userId = :userId)")
     List<TagEntity> findTagsByUserId(@Param("userId") String userId);
+
+    /**
+     * people-directory：單次批次取得所有 (userId, TagEntity) 配對，供 /members 一次組裝每位
+     * attendee 的 tags，避免對每位 member 各打一次 tag 查詢（N+1）。每列 row[0]=userId(String)、
+     * row[1]=TagEntity。
+     */
+    @Query("SELECT a.userId, t FROM AttendeeTagEntity a, TagEntity t WHERE a.tagId = t.tagId")
+    List<Object[]> findAllUserIdTagPairs();
 }
