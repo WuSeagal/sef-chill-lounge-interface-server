@@ -16,8 +16,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,7 +56,10 @@ class StickerControllerTest {
     void deleteStickerReturnsOk() throws Exception {
         doNothing().when(stickerUploadService).delete(eq(7L), eq("u-1"));
 
-        mvc.perform(delete("/upload/sticker/7"))
+        // api-delete-to-post：移除走 POST /upload/sticker/remove + JSON body。
+        mvc.perform(post("/upload/sticker/remove")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":7}"))
                 .andExpect(status().isOk());
     }
 }
