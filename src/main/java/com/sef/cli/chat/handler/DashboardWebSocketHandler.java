@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
@@ -40,6 +41,9 @@ import java.util.List;
 public class DashboardWebSocketHandler extends TextWebSocketHandler {
 
     private static final int REPLAY_LIMIT = 30;
+    private static final String ATTR_WS_DECORATED = "wsDecorated";
+    private static final int SEND_TIME_LIMIT_MS = 5_000;
+    private static final int BUFFER_SIZE_LIMIT = 512 * 1024;
 
     private final DashboardViewerService viewerService;
     private final ChatBroadcastService broadcastService;
@@ -62,17 +66,24 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
             session.close(new CloseStatus(4403, "banned"));
             return;
         }
+        // D5：以 ConcurrentWebSocketSessionDecorator 包裝後再註冊；序列化並發送出＋慢客戶端 backpressure。
+        // 將同一 decorator 實例存入 attributes，afterConnectionClosed 才能以同一實例 unregister。
+        WebSocketSession decorated = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, BUFFER_SIZE_LIMIT);
+        session.getAttributes().put(ATTR_WS_DECORATED, decorated);
+
         // Register before replay so live messages arriving mid-replay are also delivered
         // (frontend dedups by messageId). On replay failure, undo the registration so a
-        // dead viewer is not left behind.
-        viewerService.register(session);
+        // dead viewer is not left behind. 註冊/註銷皆用同一 decorator 實例。
+        viewerService.register(decorated);
         try {
-            replayRecentHistory(session);
-            sendPresenceSnapshot(session);
+            // 用 decorated 送 replay/snapshot：register 後其他執行緒的 broadcastToAll 可能同時對同一
+            // socket 寫，raw session 送會繞過序列化。replay 期間（最多 30 筆）窗口較長更需如此。
+            replayRecentHistory(decorated);
+            sendPresenceSnapshot(decorated);
             log.info("[DASH_CONNECT] dashboard viewer 連線, sessionId={}, viewers={}",
                     session.getId(), viewerService.getAllSessions().size());
         } catch (RuntimeException ex) {
-            viewerService.unregister(session);
+            viewerService.unregister(decorated);
             log.warn("dashboard replay failed, unregistering viewer sessionId={} reason={}", session.getId(), ex.getMessage());
             session.close();
         }
@@ -94,17 +105,21 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        viewerService.unregister(session);
+        // viewer set 內存的是 decorator 實例；取回連線時存於 attributes 的同一實例 unregister，
+        // 否則 identity 不符而移除失敗→殘留幽靈 viewer。未存（理論上不會）則退回原始 session。
+        Object decorated = session.getAttributes().get(ATTR_WS_DECORATED);
+        WebSocketSession toUnregister = decorated instanceof WebSocketSession ws ? ws : session;
+        viewerService.unregister(toUnregister);
         log.info("[DASH_DISCONNECT] dashboard viewer 斷線, sessionId={}, viewers={}",
                 session.getId(), viewerService.getAllSessions().size());
     }
 
-    private void sendPresenceSnapshot(WebSocketSession session) {
+    private void sendPresenceSnapshot(WebSocketSession target) {
         PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
-        broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
+        broadcastService.sendTo(target, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
     }
 
-    private void replayRecentHistory(WebSocketSession session) {
+    private void replayRecentHistory(WebSocketSession target) {
         List<MessageHistoryData> recent = messageService.loadHistory(null, null, REPLAY_LIMIT);
         // loadHistory returns newest-first; replay oldest-first so bubbles arrive in order
         for (int i = recent.size() - 1; i >= 0; i--) {
@@ -113,7 +128,7 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
                     d.cursorId(), d.messageId(), d.userId(), d.furName(), d.avatar(),
                     d.avatarColor(), d.avatarBorder(), d.messageType(), d.content(),
                     d.imageUrls(), d.stickerImageUrl(), d.createdDate());
-            broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, System.currentTimeMillis(), payload));
+            broadcastService.sendTo(target, new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, System.currentTimeMillis(), payload));
         }
     }
 

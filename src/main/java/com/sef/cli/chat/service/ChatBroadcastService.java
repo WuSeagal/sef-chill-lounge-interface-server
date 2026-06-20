@@ -8,8 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -26,7 +24,10 @@ public class ChatBroadcastService {
         try {
             String json = objectMapper.writeValueAsString(envelope);
             session.sendMessage(new TextMessage(json));
-        } catch (IOException ex) {
+        } catch (Exception ex) {
+            // 放寬為 Exception（D5）：除 IOException 外，ConcurrentWebSocketSessionDecorator
+            // 對慢客戶端可能擲 RuntimeException（如逾時/緩衝超限），單一收件者失敗不得中斷
+            // broadcastToAll 整圈廣播，也不得逆流回觸發廣播的執行緒而斷掉發送者連線。
             log.warn("ws send failed sessionId={} type={} reason={}",
                     session.getId(), envelope.type(), ex.getMessage());
         }

@@ -17,19 +17,23 @@ import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.function.Predicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -70,7 +74,13 @@ class DashboardWebSocketHandlerTest {
         Authentication auth = new UsernamePasswordAuthenticationToken(user, null, List.of());
         when(session.getPrincipal()).thenReturn((Principal) auth);
         when(session.isOpen()).thenReturn(true);
+        // D5：handler 連線時將 decorator 存入 attributes，需可寫入。
+        when(session.getAttributes()).thenReturn(new HashMap<>());
         return session;
+    }
+
+    private static ArgumentMatcher<WebSocketSession> isDecorator() {
+        return s -> s instanceof ConcurrentWebSocketSessionDecorator;
     }
 
     private static Predicate<ChatEnvelope<?>> typeIs(ChatEventType type) {
@@ -108,7 +118,21 @@ class DashboardWebSocketHandlerTest {
 
         handler.afterConnectionEstablished(session);
 
-        verify(viewerService).register(session);
+        // D5：註冊的是包裝後的 decorator，非原始 session。
+        verify(viewerService).register(argThat(isDecorator()));
+    }
+
+    @Test
+    void registerStoresDecoratorWrappingOriginalSession() throws Exception {
+        WebSocketSession session = authedSession();
+        when(messageService.loadHistory(null, null, 30)).thenReturn(List.of());
+
+        handler.afterConnectionEstablished(session);
+
+        ArgumentCaptor<WebSocketSession> captor = ArgumentCaptor.forClass(WebSocketSession.class);
+        verify(viewerService).register(captor.capture());
+        assertThat(captor.getValue()).isInstanceOf(ConcurrentWebSocketSessionDecorator.class);
+        assertThat(((ConcurrentWebSocketSessionDecorator) captor.getValue()).getDelegate()).isSameAs(session);
     }
 
     @Test
@@ -123,7 +147,8 @@ class DashboardWebSocketHandlerTest {
         handler.afterConnectionEstablished(session);
 
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
-        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        // 連線初始 replay 改走 decorated（D5：避免與並發 broadcastToAll 對同一 socket 競寫）。
+        verify(broadcastService, atLeastOnce()).sendTo(argThat(isDecorator()), captor.capture());
         List<ChatEnvelope<?>> chatMsgs = captor.getAllValues().stream().filter(typeIs(ChatEventType.CHAT_MESSAGE)).toList();
         assertThat(chatMsgs).hasSize(2);
         assertThat(((com.sef.cli.chat.event.response.ChatMessageBroadcast) chatMsgs.get(0).data()).messageId()).isEqualTo("msg-1");
@@ -154,11 +179,15 @@ class DashboardWebSocketHandlerTest {
 
     @Test
     void afterConnectionClosedUnregistersViewer() throws Exception {
+        // establish-first 讓 decorator 存入 attributes，afterConnectionClosed 才能取回同一實例 unregister。
         WebSocketSession session = authedSession();
+        when(messageService.loadHistory(null, null, 30)).thenReturn(List.of());
+        handler.afterConnectionEstablished(session);
 
         handler.afterConnectionClosed(session, CloseStatus.NORMAL);
 
-        verify(viewerService).unregister(session);
+        // unregister 兩次：register 用 decorator；close 也應以同一 decorator unregister。
+        verify(viewerService, atLeastOnce()).unregister(argThat(isDecorator()));
     }
 
     @Test
@@ -168,8 +197,9 @@ class DashboardWebSocketHandlerTest {
 
         handler.afterConnectionEstablished(session);
 
-        verify(viewerService).register(session);
-        verify(viewerService).unregister(session);
+        // register 與失敗後的 unregister 都必須是同一 decorator 實例。
+        verify(viewerService).register(argThat(isDecorator()));
+        verify(viewerService).unregister(argThat(isDecorator()));
         verify(session).close();
     }
 
@@ -183,7 +213,8 @@ class DashboardWebSocketHandlerTest {
         handler.afterConnectionEstablished(viewer);
 
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
-        verify(broadcastService, atLeastOnce()).sendTo(eq(viewer), captor.capture());
+        // 連線初始 snapshot 改走 decorated（D5）。
+        verify(broadcastService, atLeastOnce()).sendTo(argThat(isDecorator()), captor.capture());
         ChatEnvelope<?> snap = captor.getAllValues().stream()
                 .filter(typeIs(ChatEventType.PRESENCE_SNAPSHOT))
                 .findFirst().orElseThrow();

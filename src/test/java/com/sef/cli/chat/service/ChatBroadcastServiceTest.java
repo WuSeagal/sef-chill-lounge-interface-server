@@ -76,6 +76,34 @@ class ChatBroadcastServiceTest {
     }
 
     @Test
+    void broadcastRuntimeExceptionInFirstSessionDoesNotStopOthers() throws IOException {
+        WebSocketSession bad = mock(WebSocketSession.class);
+        WebSocketSession good = mock(WebSocketSession.class);
+        when(bad.isOpen()).thenReturn(true);
+        when(good.isOpen()).thenReturn(true);
+        // RuntimeException (NOT IOException) thrown by the FIRST session in the loop:
+        // if the catch only covers IOException, the loop aborts and `good` never receives.
+        doThrow(new RuntimeException("unexpected runtime failure")).when(bad).sendMessage(any(TextMessage.class));
+        when(onlineUserService.getAllSessions()).thenReturn(List.of(bad, good));
+
+        broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, 1L, new PresenceSnapshotPayload(List.of())));
+
+        verify(good).sendMessage(any(TextMessage.class));
+    }
+
+    @Test
+    void sendToSwallowsRuntimeExceptionAndDoesNotPropagate() throws IOException {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.isOpen()).thenReturn(true);
+        doThrow(new RuntimeException("boom")).when(session).sendMessage(any(TextMessage.class));
+
+        // Must not propagate to the broadcasting thread (would otherwise break the sender's connection).
+        broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PONG, 1L, null));
+
+        verify(session).sendMessage(any(TextMessage.class));
+    }
+
+    @Test
     void sendToSkipsClosedSession() throws IOException {
         WebSocketSession session = mock(WebSocketSession.class);
         when(session.isOpen()).thenReturn(false);

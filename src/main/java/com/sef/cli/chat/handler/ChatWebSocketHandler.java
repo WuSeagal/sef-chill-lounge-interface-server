@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
@@ -42,6 +43,9 @@ import java.util.function.Supplier;
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private static final String ATTR_USER_ID = "providerUserId";
+    private static final String ATTR_WS_DECORATED = "wsDecorated";
+    private static final int SEND_TIME_LIMIT_MS = 5_000;
+    private static final int BUFFER_SIZE_LIMIT = 512 * 1024;
 
     private final OnlineUserService onlineUserService;
     private final ChatBroadcastService broadcastService;
@@ -68,7 +72,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
         session.getAttributes().put(ATTR_USER_ID, providerUserId);
 
-        onlineUserService.swap(providerUserId, session).ifPresent(oldSession -> {
+        // D5：以 ConcurrentWebSocketSessionDecorator 包裝後再存入 presence map；序列化同一 session
+        // 的並發送出、對慢客戶端按 sendTimeLimit/bufferSizeLimit 自動關閉而非阻塞廣播迴圈。
+        // 將同一 decorator 實例存入 attributes，afterConnectionClosed 才能以同一實例 race-safe remove。
+        WebSocketSession decorated = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, BUFFER_SIZE_LIMIT);
+        session.getAttributes().put(ATTR_WS_DECORATED, decorated);
+
+        onlineUserService.swap(providerUserId, decorated).ifPresent(oldSession -> {
             log.info("[WS_KICK_SWAP] 同 user 新連線踢掉舊連線, userId={}, oldSessionId={}, newSessionId={}",
                     providerUserId, oldSession.getId(), session.getId());
             broadcastService.sendTo(oldSession, new ChatEnvelope<>(ChatEventType.KICKED, System.currentTimeMillis(), null));
@@ -79,12 +89,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             }
         });
 
+        // 初始送出一律走 decorated（已在 map 內）：swap 後其他執行緒的 broadcastToAll 可能同時對同一
+        // 底層 socket 寫，若這裡用 raw session 送會繞過序列化、與 decorator 路徑並發寫同一 socket。
         PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
-        broadcastService.sendTo(session, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
+        broadcastService.sendTo(decorated, new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
         // 晚到者補送目前公告（接於 presence snapshot 之後）；無公告則不送
         String announcement = announcementService.getCurrent();
         if (announcement != null) {
-            broadcastService.sendTo(session, new ChatEnvelope<>(
+            broadcastService.sendTo(decorated, new ChatEnvelope<>(
                     ChatEventType.ANNOUNCEMENT, System.currentTimeMillis(), new AnnouncementPayload(announcement)));
         }
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
@@ -98,6 +110,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (userId == null) {
             return;
         }
+        // 每次入站 frame（含 PING）更新 lastSeenAt，避免活躍 session 被 idle 排程誤回收（D6）。
+        onlineUserService.touch(userId);
 
         JsonNode root;
         try {
@@ -140,7 +154,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (userId == null) {
             return;
         }
-        onlineUserService.remove(userId, session);
+        // 關鍵正確性：map 內存的是 decorator 實例；以原始 session remove 會 identity 不符而失敗→製造幽靈。
+        // 取回連線時存於 attributes 的同一 decorator 實例來 remove；未存（理論上不會）則退回原始 session。
+        Object decorated = session.getAttributes().get(ATTR_WS_DECORATED);
+        WebSocketSession toRemove = decorated instanceof WebSocketSession ws ? ws : session;
+        onlineUserService.remove(userId, toRemove);
         PresenceSnapshotPayload snapshot = new PresenceSnapshotPayload(new ArrayList<>(onlineUserService.getOnlineUserIds()));
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.PRESENCE_SNAPSHOT, System.currentTimeMillis(), snapshot));
         log.info("[WS_DISCONNECT] 使用者斷線, userId={}, sessionId={}, status={}, online={}",

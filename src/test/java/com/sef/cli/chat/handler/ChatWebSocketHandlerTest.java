@@ -28,6 +28,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,7 +62,8 @@ class ChatWebSocketHandlerTest {
 
     @BeforeEach
     void setUp() {
-        onlineUserService = new OnlineUserService();
+        // spy：保留真實 swap/getSession/remove 行為（既有測試不變），同時可驗證 touch 被呼叫（D6 wiring）。
+        onlineUserService = spy(new OnlineUserService());
         broadcastService = mock(ChatBroadcastService.class);
         messageService = mock(MessageService.class);
         attendeeDataRepository = mock(AttendeeDataRepository.class);
@@ -129,7 +132,8 @@ class ChatWebSocketHandlerTest {
         handler.afterConnectionEstablished(session);
 
         assertThat(onlineUserService.getOnlineUserIds()).containsExactly("u-1");
-        verify(broadcastService).sendTo(eq(session), any());
+        // 連線初始 PRESENCE 改走 decorated（D5：避免與並發 broadcastToAll 對同一 socket 競寫）。
+        verify(broadcastService).sendTo(argThat(s -> s instanceof ConcurrentWebSocketSessionDecorator), any());
         verify(broadcastService).broadcastToAll(any());
     }
 
@@ -141,7 +145,7 @@ class ChatWebSocketHandlerTest {
         handler.afterConnectionEstablished(session);
 
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
-        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        verify(broadcastService, atLeastOnce()).sendTo(argThat(s -> s instanceof ConcurrentWebSocketSessionDecorator), captor.capture());
         List<ChatEnvelope<?>> sent = captor.getAllValues();
         assertThat(sent.stream().anyMatch(e ->
                 e.type() == ChatEventType.ANNOUNCEMENT
@@ -166,7 +170,7 @@ class ChatWebSocketHandlerTest {
         handler.afterConnectionEstablished(session);
 
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
-        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
+        verify(broadcastService, atLeastOnce()).sendTo(argThat(s -> s instanceof ConcurrentWebSocketSessionDecorator), captor.capture());
         assertThat(captor.getAllValues().stream().noneMatch(typeIs(ChatEventType.ANNOUNCEMENT))).isTrue();
     }
 
@@ -178,10 +182,41 @@ class ChatWebSocketHandlerTest {
         WebSocketSession newSession = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(newSession);
 
+        // close(4271) 透過 decorator 委派到原始 oldSession，仍可驗證。
         ArgumentCaptor<CloseStatus> closeStatusCaptor = ArgumentCaptor.forClass(CloseStatus.class);
         verify(oldSession).close(closeStatusCaptor.capture());
         assertThat(closeStatusCaptor.getValue().getCode()).isEqualTo(4271);
-        verify(broadcastService, atLeastOnce()).sendTo(eq(oldSession), argThat(envelopeOfType(ChatEventType.KICKED)));
+        // KICKED 廣播對象現在是包裝後的 decorator（map 內存的即為 decorator 實例），非原始 oldSession。
+        verify(broadcastService, atLeastOnce()).sendTo(
+                argThat(s -> s instanceof ConcurrentWebSocketSessionDecorator),
+                argThat(envelopeOfType(ChatEventType.KICKED)));
+    }
+
+    // ---- D5：session 以 ConcurrentWebSocketSessionDecorator 包裝 ----
+
+    @Test
+    void afterConnectionEstablishedStoresDecoratorInOnlineUserService() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+
+        handler.afterConnectionEstablished(session);
+
+        WebSocketSession stored = onlineUserService.getSession("u-1");
+        assertThat(stored).isInstanceOf(ConcurrentWebSocketSessionDecorator.class);
+        // decorator 應委派至原始 session
+        assertThat(((ConcurrentWebSocketSessionDecorator) stored).getDelegate()).isSameAs(session);
+    }
+
+    @Test
+    void afterConnectionClosedRemovesUsingStoredDecoratorInstance() throws Exception {
+        // 關鍵正確性：afterConnectionClosed 收到原始 session，必須以存於 attributes 的同一
+        // decorator 實例去 remove，否則 identity 不符會移除失敗 → 製造幽靈。
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        assertThat(onlineUserService.getOnlineUserIds()).containsExactly("u-1");
+
+        handler.afterConnectionClosed(session, CloseStatus.NORMAL);
+
+        assertThat(onlineUserService.getOnlineUserIds()).isEmpty();
     }
 
     @Test
@@ -194,6 +229,18 @@ class ChatWebSocketHandlerTest {
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
         verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
         assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.PONG))).isTrue();
+    }
+
+    @Test
+    void inboundFrameTouchesLastSeenAt() throws Exception {
+        // D6 wiring：每個入站 frame（含 PING）須呼叫 onlineUserService.touch(userId) 更新 lastSeenAt，
+        // 否則活躍但只送心跳的 session 會被 idle 排程誤回收。
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+
+        handler.handleTextMessage(session, new TextMessage("{\"type\":\"PING\",\"timestamp\":1,\"data\":null}"));
+
+        verify(onlineUserService).touch("u-1");
     }
 
     @Test
@@ -392,10 +439,9 @@ class ChatWebSocketHandlerTest {
 
         handler.handleTextMessage(session, new TextMessage("{\"type\":\"TYPING\",\"timestamp\":1,\"data\":null}"));
 
-        // 不得回任何 ERROR envelope（尤其不得是 unsupported_inbound_type）
-        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
-        verify(broadcastService, atLeastOnce()).sendTo(eq(session), captor.capture());
-        assertThat(captor.getAllValues().stream().noneMatch(typeIs(ChatEventType.ERROR))).isTrue();
+        // 不得回任何 ERROR envelope（尤其不得是 unsupported_inbound_type）；TYPING 應被廣播而非丟棄。
+        verify(broadcastService, never()).sendTo(eq(session), argThat(envelopeOfType(ChatEventType.ERROR)));
+        verify(broadcastService).broadcastToAll(argThat(envelopeOfType(ChatEventType.TYPING)));
     }
 
     @Test
