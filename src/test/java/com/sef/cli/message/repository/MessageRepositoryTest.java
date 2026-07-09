@@ -44,6 +44,35 @@ class MessageRepositoryTest {
     }
 
     @Test
+    void savesMessageWithReplyToMessageIdRoundTrip() {
+        MessageEntity entity = MessageEntity.builder()
+                .messageId("260707130020AbCd1234")
+                .userId("reply-test-001")
+                .messageType(MessageType.TEXT)
+                .content("好可愛")
+                .replyToMessageId("260707130001AbCd1234")
+                .build();
+
+        MessageEntity saved = messageRepository.saveAndFlush(entity);
+
+        assertThat(saved.getReplyToMessageId()).isEqualTo("260707130001AbCd1234");
+    }
+
+    @Test
+    void nonReplyMessageHasNullReplyToMessageId() {
+        MessageEntity entity = MessageEntity.builder()
+                .messageId("260707130021AbCd1234")
+                .userId("reply-test-002")
+                .messageType(MessageType.TEXT)
+                .content("一般訊息")
+                .build();
+
+        MessageEntity saved = messageRepository.saveAndFlush(entity);
+
+        assertThat(saved.getReplyToMessageId()).isNull();
+    }
+
+    @Test
     void findsMessagesBeforeCursorOrderedByCreatedDateDescThenIdDesc() {
         messageRepository.deleteAll();
         LocalDateTime sharedTime = LocalDateTime.of(2026, 5, 25, 10, 0, 0);
@@ -165,5 +194,44 @@ class MessageRepositoryTest {
         assertThat(result)
                 .extracting(MessageEntity::getContent)
                 .containsExactly("older-visible");
+    }
+
+    @Test
+    void findByMessageIdInAndDeletedFalseExcludesDeletedTargets() {
+        messageRepository.deleteAll();
+        MessageEntity visible = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260707130030AbCd1234")
+                .userId("target-test-001")
+                .messageType(MessageType.TEXT)
+                .content("visible-target")
+                .build());
+        MessageEntity deletedTarget = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260707130031AbCd1234")
+                .userId("target-test-002")
+                .messageType(MessageType.TEXT)
+                .content("deleted-target")
+                .build());
+        jdbcTemplate.update("update messages set deleted = true where id = ?", deletedTarget.getId());
+
+        List<MessageEntity> result = messageRepository.findByMessageIdInAndDeletedFalse(
+                List.of(visible.getMessageId(), deletedTarget.getMessageId()));
+
+        assertThat(result).extracting(MessageEntity::getMessageId).containsExactly(visible.getMessageId());
+    }
+
+    @Test
+    void findByMessageIdInAndDeletedFalseIgnoresNonExistentIds() {
+        messageRepository.deleteAll();
+        MessageEntity visible = messageRepository.saveAndFlush(MessageEntity.builder()
+                .messageId("260707130032AbCd1234")
+                .userId("target-test-003")
+                .messageType(MessageType.TEXT)
+                .content("visible-target-2")
+                .build());
+
+        List<MessageEntity> result = messageRepository.findByMessageIdInAndDeletedFalse(
+                List.of(visible.getMessageId(), "does-not-exist"));
+
+        assertThat(result).extracting(MessageEntity::getMessageId).containsExactly(visible.getMessageId());
     }
 }

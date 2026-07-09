@@ -64,7 +64,12 @@ class MessageControllerTest {
                         "hello",
                         List.of(),
                         null,
-                        LocalDateTime.of(2026, 5, 25, 10, 0, 0)
+                        LocalDateTime.of(2026, 5, 25, 10, 0, 0),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
                 )
         ));
 

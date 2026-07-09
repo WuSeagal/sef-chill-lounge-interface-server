@@ -59,6 +59,12 @@ public class MessageEntity {
     @Column(name = "sticker_image_url", length = 1024)
     private String stickerImageUrl;
 
+    // 唯一持久化的回覆關聯欄位（FK-like，值永不變）。作者 furName / 內容摘要 / 建立時間
+    // 皆不落庫，一律於讀取歷史或組裝廣播時即時查詢衍生（見 MessageService#resolveReplyPreview），
+    // 以保證改名/刪除後每次讀取都反映當前狀態（快照會有「離線改名後重新載入仍顯示舊名字」的洞）。
+    @Column(name = "reply_to_message_id", length = 64)
+    private String replyToMessageId;
+
     @CreatedDate
     @Column(name = "created_date", nullable = false, updatable = false)
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")

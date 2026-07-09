@@ -17,6 +17,11 @@ public record ChatMessageBroadcast(
         String content,
         List<String> imageUrls,
         String stickerImageUrl,
-        LocalDateTime createdDate
+        LocalDateTime createdDate,
+        String replyToMessageId,
+        String replyToUserId,
+        String replyToFurName,
+        String replyToContentSnippet,
+        LocalDateTime replyToCreatedDate
 ) {
 }

@@ -19,10 +19,19 @@ public record MessageHistoryData(
         String content,
         List<String> imageUrls,
         String stickerImageUrl,
-        LocalDateTime createdDate
+        LocalDateTime createdDate,
+        String replyToMessageId,
+        String replyToUserId,
+        String replyToFurName,
+        String replyToContentSnippet,
+        LocalDateTime replyToCreatedDate
 ) {
 
-    public static MessageHistoryData from(MessageEntity entity, AttendeeDataEntity attendee) {
+    /**
+     * @param replyPreview 即時解析結果（nullable）；為 null 時回覆四個衍生欄位皆為 null，
+     *                      但 {@code replyToMessageId} 仍取自 entity（保留「這是一則回覆但無法解析」的資訊）。
+     */
+    public static MessageHistoryData from(MessageEntity entity, AttendeeDataEntity attendee, ReplyPreview replyPreview) {
         return new MessageHistoryData(
                 entity.getId(),
                 entity.getMessageId(),
@@ -35,7 +44,12 @@ public record MessageHistoryData(
                 entity.getContent(),
                 entity.getImageUrls() == null ? List.of() : List.copyOf(entity.getImageUrls()),
                 entity.getStickerImageUrl(),
-                entity.getCreatedDate()
+                entity.getCreatedDate(),
+                entity.getReplyToMessageId(),
+                replyPreview == null ? null : replyPreview.targetUserId(),
+                replyPreview == null ? null : replyPreview.furName(),
+                replyPreview == null ? null : replyPreview.contentSnippet(),
+                replyPreview == null ? null : replyPreview.createdDate()
         );
     }
 }

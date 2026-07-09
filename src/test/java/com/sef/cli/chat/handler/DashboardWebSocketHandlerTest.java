@@ -139,9 +139,11 @@ class DashboardWebSocketHandlerTest {
     void replaysRecentHistoryOldestFirstAsChatMessages() throws Exception {
         WebSocketSession session = authedSession();
         MessageHistoryData newer = new MessageHistoryData(2L, "msg-2", "u-1", MessageType.TEXT,
-                "Fox", "/a.png", "#fff", false, "second", List.of(), null, LocalDateTime.now());
+                "Fox", "/a.png", "#fff", false, "second", List.of(), null, LocalDateTime.now(),
+                null, null, null, null, null);
         MessageHistoryData older = new MessageHistoryData(1L, "msg-1", "u-1", MessageType.TEXT,
-                "Fox", "/a.png", "#fff", false, "first", List.of(), null, LocalDateTime.now());
+                "Fox", "/a.png", "#fff", false, "first", List.of(), null, LocalDateTime.now(),
+                null, null, null, null, null);
         when(messageService.loadHistory(null, null, 30)).thenReturn(List.of(newer, older));
 
         handler.afterConnectionEstablished(session);

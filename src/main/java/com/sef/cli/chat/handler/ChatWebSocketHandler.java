@@ -20,6 +20,7 @@ import com.sef.cli.common.BanGuard;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
+import com.sef.cli.message.service.dto.ReplyPreview;
 import com.sef.cli.user.entity.AdminUserEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -182,7 +183,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             if (data.path("imageUrls").isArray()) {
                 data.path("imageUrls").forEach(node -> imageUrls.add(node.asText()));
             }
-            persistAndBroadcast(session, userId, () -> messageService.persistText(userId, content, imageUrls));
+            // client 只送 replyToMessageId（可缺省）；作者/摘要/時間一律由 MessageService 即時解析衍生，
+            // 不採信 client 傳入的 replyToFurName/replyToContentSnippet。
+            String replyToMessageId = data.path("replyToMessageId").isMissingNode() || data.path("replyToMessageId").isNull()
+                    ? null : data.path("replyToMessageId").asText();
+            persistAndBroadcast(session, userId, () -> messageService.persistText(userId, content, imageUrls, replyToMessageId));
             return;
         }
 
@@ -193,7 +198,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 sendError(session, "sticker_image_url_invalid_prefix", "sticker url must start with /sticker/");
                 return;
             }
-            persistAndBroadcast(session, userId, () -> messageService.persistSticker(userId, stickerImageUrl));
+            // 貼圖亦可「回覆某則訊息」（貼圖只是不能被拿來當回覆內容摘要，被回覆完全支援）；
+            // 規則與 TEXT 分支一致：client 只送 replyToMessageId，其餘一律即時解析。
+            String replyToMessageId = data.path("replyToMessageId").isMissingNode() || data.path("replyToMessageId").isNull()
+                    ? null : data.path("replyToMessageId").asText();
+            persistAndBroadcast(session, userId, () -> messageService.persistSticker(userId, stickerImageUrl, replyToMessageId));
             return;
         }
 
@@ -216,6 +225,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 userId, saved.getMessageType(), saved.getMessageId(), saved.getContent(),
                 contentLength, imageCount, saved.getStickerImageUrl());
         AttendeeDataEntity attendee = attendeeDataRepository.findByUserId(userId).orElse(null);
+        // 回覆預覽即時解析（非快照）：即使 persistText 只原樣存了 replyToMessageId，
+        // 廣播時仍即時查詢目標訊息 + 作者，確保剛送出就反映當前狀態。
+        ReplyPreview replyPreview = messageService.resolveReplyPreview(saved.getReplyToMessageId());
         ChatMessageBroadcast payload = new ChatMessageBroadcast(
                 saved.getId(),
                 saved.getMessageId(),
@@ -228,7 +240,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 saved.getContent(),
                 saved.getImageUrls() == null ? List.of() : saved.getImageUrls(),
                 saved.getStickerImageUrl(),
-                saved.getCreatedDate());
+                saved.getCreatedDate(),
+                saved.getReplyToMessageId(),
+                replyPreview == null ? null : replyPreview.targetUserId(),
+                replyPreview == null ? null : replyPreview.furName(),
+                replyPreview == null ? null : replyPreview.contentSnippet(),
+                replyPreview == null ? null : replyPreview.createdDate());
         broadcastService.broadcastToAll(new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, System.currentTimeMillis(), payload));
     }
 

@@ -176,11 +176,37 @@ VALUES
 
 -- ============================================================
 -- MESSAGES (聊天歷史 seed)
+-- 時間跨度拉大（7 天前 ~ 剛剛），供前端時間戳（今天/昨天/更早）與跨日分隔線測試；
+-- 並含數筆回覆（reply_to_message_id 指向本區塊內既有訊息），其中一筆回覆 7 天前的訊息，
+-- 供測試「跳轉載入到底」（jump-load 需連續往回載入歷史才能找到目標）。
+-- 回覆的作者名字/內容摘要/建立時間一律讀取時即時解析，不落庫，故此處只需設定 reply_to_message_id。
 -- ============================================================
 -- Fake Data
-INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date)
+INSERT INTO MESSAGES (message_id, user_id, message_type, content, image_urls, sticker_image_url, created_date, reply_to_message_id)
 VALUES
-('260612120001AbCd1234', '111427449810799428954', 'TEXT', '大家好，歡迎來 chill lounge', NULL, NULL, DATEADD('MINUTE', -3, CURRENT_TIMESTAMP)),
-('260612120002BcDe2345', 'demo-user-002', 'TEXT', '這是今天拍的攤位照片', JSON '["/image/demo-1.jpg","/image/demo-2.jpg"]', NULL, DATEADD('MINUTE', -2, CURRENT_TIMESTAMP)),
-('260612120003CdEf3456', 'demo-user-003', 'STICKER', NULL, NULL, '/sticker/fox-hello.png', DATEADD('MINUTE', -1, CURRENT_TIMESTAMP))
+-- 7 天前
+('260601090001Seed0001', '111427449810799428954', 'TEXT', '哇這是上上禮拜的訊息了', NULL, NULL, DATEADD('DAY', -7, CURRENT_TIMESTAMP), NULL),
+('260601090002Seed0002', 'demo-user-002', 'TEXT', '對啊時間過得好快', NULL, NULL, DATEADD('MINUTE', 5, DATEADD('DAY', -7, CURRENT_TIMESTAMP)), NULL),
+-- 5 天前
+('260603100003Seed0003', 'demo-user-003', 'TEXT', '上次那個活動好好玩，附上照片', JSON '["/image/demo-3.jpg"]', NULL, DATEADD('DAY', -5, CURRENT_TIMESTAMP), NULL),
+-- 3 天前
+('260605110004Seed0004', '111427449810799428954', 'TEXT', '剛剛整理了一下攤位設備', NULL, NULL, DATEADD('DAY', -3, CURRENT_TIMESTAMP), NULL),
+('260605110005Seed0005', 'demo-user-002', 'TEXT', '辛苦了！', NULL, NULL, DATEADD('MINUTE', 10, DATEADD('DAY', -3, CURRENT_TIMESTAMP)), '260605110004Seed0004'),
+-- 昨天
+('260607080006Seed0006', 'demo-user-003', 'TEXT', '明天要早起集合', NULL, NULL, DATEADD('DAY', -1, CURRENT_TIMESTAMP), NULL),
+-- 昨天，回覆 7 天前的訊息（測試 jump-load 需往回撈多批歷史）
+('260607090007Seed0007', '111427449810799428954', 'TEXT', '我還記得那次，超懷念的！', NULL, NULL, DATEADD('HOUR', 1, DATEADD('DAY', -1, CURRENT_TIMESTAMP)), '260601090001Seed0001'),
+-- 今天，較早
+('260608060008Seed0008', 'demo-user-002', 'TEXT', '早安大家', NULL, NULL, DATEADD('HOUR', -6, CURRENT_TIMESTAMP), NULL),
+('260608070009Seed0009', 'demo-user-003', 'TEXT', '早安！', NULL, NULL, DATEADD('HOUR', -5, CURRENT_TIMESTAMP), NULL),
+('260608080010Seed0010', '111427449810799428954', 'STICKER', NULL, NULL, '/sticker/seagal-1.gif', DATEADD('HOUR', -4, CURRENT_TIMESTAMP), NULL),
+('260608090011Seed0011', 'demo-user-002', 'TEXT', '這次UTFG的攤位好多，逛不完', NULL, NULL, DATEADD('HOUR', -3, CURRENT_TIMESTAMP), NULL),
+('260608090012Seed0012', 'demo-user-003', 'TEXT', '對啊我剛逛了一圈', NULL, NULL, DATEADD('MINUTE', 2, DATEADD('HOUR', -3, CURRENT_TIMESTAMP)), '260608090011Seed0011'),
+('260608100013Seed0013', '111427449810799428954', 'TEXT', '中午的合照', JSON '["/image/demo-4.jpg","/image/demo-5.jpg"]', NULL, DATEADD('HOUR', -2, CURRENT_TIMESTAMP), NULL),
+('260608110014Seed0014', 'demo-user-002', 'TEXT', '午餐大家吃什麼', NULL, NULL, DATEADD('MINUTE', -90, CURRENT_TIMESTAMP), NULL),
+('260608110015Seed0015', 'demo-user-003', 'TEXT', '便當如何？附近那家不錯', NULL, NULL, DATEADD('MINUTE', -80, CURRENT_TIMESTAMP), '260608110014Seed0014'),
+-- 剛剛（既有 3 筆，維持不變）
+('260612120001AbCd1234', '111427449810799428954', 'TEXT', '大家好，歡迎來 chill lounge', NULL, NULL, DATEADD('MINUTE', -3, CURRENT_TIMESTAMP), NULL),
+('260612120002BcDe2345', 'demo-user-002', 'TEXT', '這是今天拍的攤位照片', JSON '["/image/demo-1.jpg","/image/demo-2.jpg"]', NULL, DATEADD('MINUTE', -2, CURRENT_TIMESTAMP), NULL),
+('260612120003CdEf3456', 'demo-user-003', 'STICKER', NULL, NULL, '/sticker/fox-hello.png', DATEADD('MINUTE', -1, CURRENT_TIMESTAMP), NULL)
 ;

@@ -16,6 +16,7 @@ import com.sef.cli.common.BanGuard;
 import com.sef.cli.message.entity.MessageEntity;
 import com.sef.cli.message.enums.MessageType;
 import com.sef.cli.message.service.MessageService;
+import com.sef.cli.message.service.dto.ReplyPreview;
 import com.sef.cli.testutil.LogCaptor;
 import com.sef.cli.user.entity.AdminUserEntity;
 import ch.qos.logback.classic.Level;
@@ -41,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -248,7 +250,7 @@ class ChatWebSocketHandlerTest {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
 
-        when(messageService.persistText(eq("u-1"), eq("hello"), eq(List.of()))).thenReturn(
+        when(messageService.persistText(eq("u-1"), eq("hello"), eq(List.of()), isNull())).thenReturn(
                 MessageEntity.builder()
                         .id(1L)
                         .messageId("msg-001")
@@ -266,10 +268,96 @@ class ChatWebSocketHandlerTest {
                 "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"hello\",\"imageUrls\":[]}}"
         ));
 
-        verify(messageService).persistText("u-1", "hello", List.of());
+        verify(messageService).persistText("u-1", "hello", List.of(), null);
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
         verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
         assertThat(captor.getAllValues().stream().anyMatch(typeIs(ChatEventType.CHAT_MESSAGE))).isTrue();
+    }
+
+    @Test
+    void chatMessageWithReplyToMessageId_passesToServiceAndBroadcastsResolvedPreview() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        LocalDateTime targetTime = LocalDateTime.of(2026, 7, 7, 9, 3, 0);
+        when(messageService.persistText(eq("u-1"), eq("好可愛"), eq(List.of()), eq("target-msg"))).thenReturn(
+                MessageEntity.builder()
+                        .id(11L).messageId("msg-r").userId("u-1")
+                        .messageType(MessageType.TEXT).content("好可愛")
+                        .createdDate(LocalDateTime.now())
+                        .replyToMessageId("target-msg")
+                        .build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+        // 廣播時即時解析（非快照）：mock resolveReplyPreview 模擬目標訊息當下的即時查詢結果。
+        when(messageService.resolveReplyPreview("target-msg")).thenReturn(
+                new ReplyPreview("google-target", "小白", "看看這張", targetTime));
+
+        // client 自帶的 replyToFurName 應被忽略：server 只讀 replyToMessageId，其餘一律即時解析。
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"好可愛\",\"imageUrls\":[],\"replyToMessageId\":\"target-msg\",\"replyToFurName\":\"駭客偽造\"}}"));
+
+        verify(messageService).persistText("u-1", "好可愛", List.of(), "target-msg");
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.CHAT_MESSAGE)).findFirst().orElseThrow().data();
+        assertThat(payload.replyToMessageId()).isEqualTo("target-msg");
+        assertThat(payload.replyToUserId()).isEqualTo("google-target");
+        assertThat(payload.replyToFurName()).isEqualTo("小白");
+        assertThat(payload.replyToContentSnippet()).isEqualTo("看看這張");
+        assertThat(payload.replyToCreatedDate()).isEqualTo(targetTime);
+    }
+
+    @Test
+    void chatMessageWithUnresolvableReplyTarget_broadcastsNullDerivedReplyFields() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(messageService.persistText(eq("u-1"), eq("回應已刪訊息"), eq(List.of()), eq("gone"))).thenReturn(
+                MessageEntity.builder()
+                        .id(13L).messageId("msg-gone").userId("u-1")
+                        .messageType(MessageType.TEXT).content("回應已刪訊息")
+                        .createdDate(LocalDateTime.now())
+                        .replyToMessageId("gone")
+                        .build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+        when(messageService.resolveReplyPreview("gone")).thenReturn(null);
+
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"回應已刪訊息\",\"imageUrls\":[],\"replyToMessageId\":\"gone\"}}"));
+
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.CHAT_MESSAGE)).findFirst().orElseThrow().data();
+        assertThat(payload.replyToMessageId()).isEqualTo("gone");
+        assertThat(payload.replyToUserId()).isNull();
+        assertThat(payload.replyToFurName()).isNull();
+        assertThat(payload.replyToContentSnippet()).isNull();
+        assertThat(payload.replyToCreatedDate()).isNull();
+    }
+
+    @Test
+    void chatMessageWithoutReplyId_passesNullReplyTarget() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        when(messageService.persistText(eq("u-1"), eq("一般訊息"), eq(List.of()), isNull())).thenReturn(
+                MessageEntity.builder()
+                        .id(12L).messageId("msg-n").userId("u-1")
+                        .messageType(MessageType.TEXT).content("一般訊息")
+                        .createdDate(LocalDateTime.now()).build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"TEXT\",\"content\":\"一般訊息\",\"imageUrls\":[]}}"));
+
+        verify(messageService).persistText("u-1", "一般訊息", List.of(), null);
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.CHAT_MESSAGE)).findFirst().orElseThrow().data();
+        assertThat(payload.replyToMessageId()).isNull();
     }
 
     @Test
@@ -277,7 +365,7 @@ class ChatWebSocketHandlerTest {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
 
-        when(messageService.persistText(eq("u-1"), eq("hello"), any())).thenReturn(
+        when(messageService.persistText(eq("u-1"), eq("hello"), any(), any())).thenReturn(
                 MessageEntity.builder()
                         .id(1L).messageId("msg-001").userId("u-1")
                         .messageType(MessageType.TEXT).content("hello")
@@ -322,7 +410,7 @@ class ChatWebSocketHandlerTest {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
 
-        when(messageService.persistText(eq("u-1"), any(), any()))
+        when(messageService.persistText(eq("u-1"), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("message_content_too_long"));
 
         handler.handleTextMessage(session, new TextMessage(
@@ -340,7 +428,7 @@ class ChatWebSocketHandlerTest {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
 
-        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"))).thenReturn(
+        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"), isNull())).thenReturn(
                 MessageEntity.builder()
                         .id(2L).messageId("msg-002").userId("u-1")
                         .messageType(MessageType.STICKER).stickerImageUrl("/sticker/u-1/1.png?v=1")
@@ -351,12 +439,44 @@ class ChatWebSocketHandlerTest {
         handler.handleTextMessage(session, new TextMessage(
                 "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"STICKER\",\"stickerImageUrl\":\"/sticker/u-1/1.png?v=1\"}}"));
 
-        verify(messageService).persistSticker("u-1", "/sticker/u-1/1.png?v=1");
+        verify(messageService).persistSticker("u-1", "/sticker/u-1/1.png?v=1", null);
         ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
         verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
         ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
                 .filter(typeIs(ChatEventType.CHAT_MESSAGE)).findFirst().orElseThrow().data();
         assertThat(payload.stickerImageUrl()).isEqualTo("/sticker/u-1/1.png?v=1");
+    }
+
+    @Test
+    void handleStickerMessageWithReplyToMessageId_passesToServiceAndBroadcastsResolvedPreview() throws Exception {
+        WebSocketSession session = mockAuthedSession("u-1");
+        handler.afterConnectionEstablished(session);
+        LocalDateTime targetTime = LocalDateTime.of(2026, 7, 7, 9, 3, 0);
+        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"), eq("target-msg"))).thenReturn(
+                MessageEntity.builder()
+                        .id(3L).messageId("msg-sticker-reply").userId("u-1")
+                        .messageType(MessageType.STICKER).stickerImageUrl("/sticker/u-1/1.png?v=1")
+                        .createdDate(LocalDateTime.now())
+                        .replyToMessageId("target-msg")
+                        .build());
+        when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
+                AttendeeDataEntity.builder().userId("u-1").furName("Fox").build()));
+        when(messageService.resolveReplyPreview("target-msg")).thenReturn(
+                new ReplyPreview("google-target", "小白", "看看這張", targetTime));
+
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"CHAT_MESSAGE\",\"timestamp\":1,\"data\":{\"messageType\":\"STICKER\",\"stickerImageUrl\":\"/sticker/u-1/1.png?v=1\",\"replyToMessageId\":\"target-msg\"}}"));
+
+        verify(messageService).persistSticker("u-1", "/sticker/u-1/1.png?v=1", "target-msg");
+        ArgumentCaptor<ChatEnvelope<?>> captor = ArgumentCaptor.forClass(ChatEnvelope.class);
+        verify(broadcastService, atLeastOnce()).broadcastToAll(captor.capture());
+        ChatMessageBroadcast payload = (ChatMessageBroadcast) captor.getAllValues().stream()
+                .filter(typeIs(ChatEventType.CHAT_MESSAGE)).findFirst().orElseThrow().data();
+        assertThat(payload.replyToMessageId()).isEqualTo("target-msg");
+        assertThat(payload.replyToUserId()).isEqualTo("google-target");
+        assertThat(payload.replyToFurName()).isEqualTo("小白");
+        assertThat(payload.replyToContentSnippet()).isEqualTo("看看這張");
+        assertThat(payload.replyToCreatedDate()).isEqualTo(targetTime);
     }
 
     @Test
@@ -529,7 +649,7 @@ class ChatWebSocketHandlerTest {
     void textMessage_logsChatMsgInfoWithRawContent() throws Exception {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
-        when(messageService.persistText(eq("u-1"), eq("hello"), eq(List.of()))).thenReturn(
+        when(messageService.persistText(eq("u-1"), eq("hello"), eq(List.of()), isNull())).thenReturn(
                 MessageEntity.builder().id(1L).messageId("msg-001").userId("u-1")
                         .messageType(MessageType.TEXT).content("hello").createdDate(LocalDateTime.now()).build());
         when(attendeeDataRepository.findByUserId("u-1")).thenReturn(Optional.of(
@@ -548,7 +668,7 @@ class ChatWebSocketHandlerTest {
     void stickerMessage_logsChatMsgInfoWithStickerUrl() throws Exception {
         WebSocketSession session = mockAuthedSession("u-1");
         handler.afterConnectionEstablished(session);
-        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"))).thenReturn(
+        when(messageService.persistSticker(eq("u-1"), eq("/sticker/u-1/1.png?v=1"), isNull())).thenReturn(
                 MessageEntity.builder().id(2L).messageId("msg-002").userId("u-1")
                         .messageType(MessageType.STICKER).stickerImageUrl("/sticker/u-1/1.png?v=1")
                         .createdDate(LocalDateTime.now()).build());

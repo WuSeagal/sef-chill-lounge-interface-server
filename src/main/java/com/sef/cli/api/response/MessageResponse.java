@@ -25,4 +25,9 @@ public class MessageResponse {
     private List<String> imageUrls;
     private String stickerImageUrl;
     private LocalDateTime createdDate;
+    private String replyToMessageId;
+    private String replyToUserId;
+    private String replyToFurName;
+    private String replyToContentSnippet;
+    private LocalDateTime replyToCreatedDate;
 }

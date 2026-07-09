@@ -127,7 +127,9 @@ public class DashboardWebSocketHandler extends TextWebSocketHandler {
             ChatMessageBroadcast payload = new ChatMessageBroadcast(
                     d.cursorId(), d.messageId(), d.userId(), d.furName(), d.avatar(),
                     d.avatarColor(), d.avatarBorder(), d.messageType(), d.content(),
-                    d.imageUrls(), d.stickerImageUrl(), d.createdDate());
+                    d.imageUrls(), d.stickerImageUrl(), d.createdDate(),
+                    d.replyToMessageId(), d.replyToUserId(), d.replyToFurName(),
+                    d.replyToContentSnippet(), d.replyToCreatedDate());
             broadcastService.sendTo(target, new ChatEnvelope<>(ChatEventType.CHAT_MESSAGE, System.currentTimeMillis(), payload));
         }
     }

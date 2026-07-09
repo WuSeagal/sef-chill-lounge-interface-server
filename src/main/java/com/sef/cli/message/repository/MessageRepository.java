@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,4 +40,7 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
     // soft-delete 用：須能取得包含 deleted = true 的訊息（idempotent 判定）。
     Optional<MessageEntity> findByMessageId(String messageId);
+
+    // 回覆預覽批次解析用：排除已軟刪除的目標，讓「原訊息之後才被刪除」的舊回覆能查無結果。
+    List<MessageEntity> findByMessageIdInAndDeletedFalse(Collection<String> messageIds);
 }
